@@ -1,0 +1,2 @@
+prettytable==3.7.0
+randomname==0.2.1

