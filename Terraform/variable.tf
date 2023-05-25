@@ -1,4 +1,4 @@
 variable "api_token" {
   description = "DigitalOcean API token"
-  default = "<API_KEY_HERE>"
+  default = "<API_KEY>"
 }
