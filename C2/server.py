@@ -213,6 +213,7 @@ def nimplant():
         print('[-] An error occurred while compiling the implant')
     implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
     os.remove(f'{implant_loc}/{f_name}')
+
 def resolve_ip(interface):
     
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -254,7 +255,6 @@ def web_payload_server():
     
     http_handler = SimpleHTTPRequestHandler
     http_handler.log_message = lambda *args, **kwargs: None
-    http_handler.tr
     server = http.server.ThreadingHTTPServer((host_ip, 8999), http_handler)
     
     print(f'[+] Payload server is running at http://{host_ip}:8999')
@@ -270,22 +270,41 @@ def redirector(LPORT):
     else:
         print('[*] Generating SSH keypair...')
         key = RSA.generate(2048)
-        public_key = key.publickey().export_key("PEM")
-        private_key = key.exportKey("PEM")
-        shutil.move(public_key, key_loc)
-        shutil.move(private_key, key_loc)
+        f = open("id_rsa", "wb")
+        f.write(key.exportKey('PEM'))
+        f.close()
 
-    
+        pubkey = key.publickey()
+        f = open("id_rsa.pub", "wb")
+        f.write(pubkey.exportKey('OpenSSH'))
+        f.close()
+
+        priv_key_loc = os.path.expanduser('id_rsa')
+        pub_key_loc = os.path.expanduser('id_rsa.pub')
+        shutil.move(priv_key_loc, key_loc)
+        shutil.move(pub_key_loc, key_loc)
+
     terra_loc = os.path.expanduser('~/PrimusC2/Terraform')
     redir_loc = os.path.expanduser('~/PrimusC2/Templates/redirector_template.tf')
-    copy_loc = os.path.expanduser('~/PrimusC2/Terraform/redirector.tf')
+    script_loc = os.path.expanduser('~/PrimusC2/Templates/script.sh')
+    redir_copy_loc = os.path.expanduser('~/PrimusC2/Terraform/redirector.tf')
+    script_copy_loc = os.path.expanduser('~/PrimusC2/Terraform/script.sh')
+    script_name = "script.sh"
     redirector_name = "redirector.tf"
     if os.path.exists(redir_loc):
-        shutil.copy(redir_loc, copy_loc)
+        shutil.copy(redir_loc, redir_copy_loc)
         print('[*] Patching listening port...')
         with open(f'{terra_loc}/{redirector_name}') as f:
             patch_host = f.read().replace('LPORT', str(LPORT))
         with open(f'{terra_loc}/{redirector_name}', 'w') as f:
+            f.write(patch_host)
+            f.close()
+            
+    if os.path.exists(script_loc):
+        shutil.copy(script_loc, script_copy_loc)
+        with open(f'{terra_loc}/{script_name}') as f:
+            patch_host = f.read().replace('LPORT', str(LPORT))
+        with open(f'{terra_loc}/{script_name}', 'w') as f:
             f.write(patch_host)
             f.close()
             print('[+] Listening port patched\n')
@@ -300,7 +319,6 @@ def redirector(LPORT):
     global re_ip_str
     re_ip_str = "".join(redir_ip)
     process.wait()
-
 
     print('[*] Running socat realy trough SSH.. wait a moment.')
     subprocess.run(["ssh", f"root@{re_ip_str}", "/tmp/script.sh"],
@@ -321,7 +339,10 @@ def exit_handler():
 
     try:
         print('[*] Cleaning up files...')
+        os.remove("script.sh")
         os.remove("redirector.tf")
+        print('[+] Files succesfully cleaned')
+        
     except:
         print('[-] File not found.')
 
