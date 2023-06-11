@@ -1,5 +1,5 @@
 # PrimusC2
-*For educational use only *
+*For educational use only*
 A C2 framework built for my bachelors thesis at KEA - Københavns Erhvervsakademi - **WORK IN PROGRESS - expect bugs and missing features**
 
 
