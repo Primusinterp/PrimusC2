@@ -1,3 +1,4 @@
 prettytable==3.7.0
 pycryptodomex==3.11.0
 randomname==0.2.1
+rich==13.4.1

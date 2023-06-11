@@ -41,3 +41,6 @@ echo '########################################################################'
 echo '[*] Installing python requirements...'
 echo '########################################################################'
 pip3 install -r ~/PrimusC2/requirements.txt
+
+echo -e '\n'
+echo '[*] Please reload the terminal or source "~/.profile" to make nim availble in PATH'

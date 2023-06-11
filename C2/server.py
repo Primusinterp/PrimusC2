@@ -463,7 +463,6 @@ if __name__ == '__main__':
             if command == 'exit':
                 quit_message = input('Ctrl-C\n[+] Do you really want to quit ? (y/n)').lower()
                 if quit_message == 'y':
-                    target_length = len(targets)
                     for target in targets:
                         if target[7] == 'Dead':
                             pass
@@ -478,7 +477,6 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             quit_message = input('Ctrl-C\n[+] Do you really want to quit ? (y/n)').lower()
             if quit_message == 'y':
-                target_length = len(targets)
                 for target in targets:
                     if target[7] == 'Dead':
                         pass
