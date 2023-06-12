@@ -75,3 +75,12 @@ To get started(redirector):
 5. Choose `Other IP` and input the public IP of the redirector (Can be found after listener generation)
 6. Transfer the implant to the target and await callback.
 7. Happy hacking :) 
+
+
+### Roadmap
+- Execute-Assembly 
+- Inline-Assembly
+- Encryption of data streams
+- Implemneation of smart pipe redirectors with automation
+- Linux implant
+- Upload/download functionality for the implant
