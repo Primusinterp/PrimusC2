@@ -1,5 +1,6 @@
 # PrimusC2
-*For educational use only *
+*For educational use only*
+
 A C2 framework built for my bachelors thesis at KEA - Københavns Erhvervsakademi - **WORK IN PROGRESS - expect bugs and missing features**
 
 
@@ -74,3 +75,12 @@ To get started(redirector):
 5. Choose `Other IP` and input the public IP of the redirector (Can be found after listener generation)
 6. Transfer the implant to the target and await callback.
 7. Happy hacking :) 
+
+
+### Roadmap
+- Execute-Assembly 
+- Inline-Assembly
+- Encryption of data streams
+- Implemneation of smart pipe redirectors with automation
+- Linux implant
+- Upload/download functionality for the implant
