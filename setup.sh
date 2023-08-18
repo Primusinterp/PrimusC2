@@ -16,11 +16,7 @@ echo '########################################################################'
 echo '[*] Installing nim...'
 echo '########################################################################'
 
-curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
-
-
-export PATH=$HOME/.nimble/bin:$PATH
-echo export PATH=$HOME/.nimble/bin:$PATH >> ~/.profile
+sudo apt install nim -y
 
 
 echo '[+] Nim Installed'
@@ -34,6 +30,12 @@ echo '[*] Installing mingW64 compiler...'
 echo '########################################################################'
 sudo apt -y install mingw-w64
 
+echo -e '\n'
+echo '########################################################################'
+echo '[*] Installing Terraform...'
+echo '########################################################################'
+sudo apt -y install terraform
+
 
 
 echo -e '\n'
@@ -42,5 +44,4 @@ echo '[*] Installing python requirements...'
 echo '########################################################################'
 pip3 install -r ~/PrimusC2/requirements.txt
 
-echo -e '\n'
-echo '[*] Please reload the terminal or source "~/.profile" to make nim availble in PATH'
+
