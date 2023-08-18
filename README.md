@@ -38,6 +38,18 @@ python3 server.py
 - Dynamic implant generation 
 - Automated Redirector setup via Digital Ocean VPS
 
+### Powershell
+The framework is very powershell dependent - and it offers two ways of executing powershell. Either with `ExecProcess` in Nim or through Powershell in an unmanged runspace.
+
+`ExecProcess` is utilizing `Powershell.exe` to execute commands, and it makes a lot of *noise*. Powershell in an unmanged runspace is more stealthy, but has the limitation that it only takes one parameter.
+
+To use the `ExecProcess` method you simply need to type in the `powershell` command when you have started the interaction with the target, as seen below:
+
+![image](https://github.com/Primusinterp/PrimusC2/assets/65064450/87f49b76-4bdb-4e95-ba1a-5eab7a1bd4f1)
+
+To use Powershell in an unmanged runspace, you need to use the prefix `pwsh` and then the `command`, as seen below:
+![image](https://github.com/Primusinterp/PrimusC2/assets/65064450/9fb146a3-a97c-467a-bfc9-f9087020a3a9)
+
 ## Usage
 The following functionality is implemented in PrimusC2's current state:
 ```bash
@@ -53,9 +65,11 @@ The following functionality is implemented in PrimusC2's current state:
     kill <sessions_val>         --> Terminate active callback
     exit                        --> exit from the server
 
-    Session Commands
+    Implant Commands
     ------------------------------------------------------------------------------------------------------
     background                  --> Backgrounds current sessions
+    persist                     --> Establish persistance trough registry keys(needs to be in the same
+                                    dir as the implant on target disk)
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
@@ -81,6 +95,6 @@ To get started(redirector):
 - Execute-Assembly 
 - Inline-Assembly
 - Encryption of data streams
-- Implemneation of smart pipe redirectors with automation
+- Implementation of smart pipe redirectors with automation
 - Linux implant
 - Upload/download functionality for the implant
