@@ -1,6 +1,11 @@
 # PrimusC2
 *For educational use only*
 
+<p align="center">
+  <img width="512" height="512" src="https://github.com/Primusinterp/PrimusC2/assets/65064450/837351fa-2bfe-43a4-ad83-034e985a6bcd">
+</p>
+
+
 A C2 framework built for my bachelors thesis at KEA - Københavns Erhvervsakademi - **WORK IN PROGRESS - expect bugs and missing features**
 
 
