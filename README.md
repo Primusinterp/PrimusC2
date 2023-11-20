@@ -8,6 +8,8 @@
 
 A C2 framework built for my bachelors thesis at KEA - Københavns Erhvervsakademi - **WORK IN PROGRESS - expect bugs and missing features**
 
+I work on this project in my spare time when i am not working or doing other security stuff, i am by no means a skilled coding genuis, but i love to learn and improve :) If you have any suggetions for me or feedback i would love to hear it, you can reach me on my socials. 
+
 
 ## Installation 
 To get the dependencies installed and the server ready to go, it's needed to run the setup script and a few manual commands.
@@ -26,7 +28,7 @@ source setup.py
 ```
 Install nim packages:
 ```
-sudo nimble install -y winim strenc
+sudo nimble install -y winim strenc shlex terminaltables
 ```
 Run the server from the C2 folder:
 ```bash
@@ -37,23 +39,14 @@ python3 server.py
 - Python C2 server 
 - Nim Implant 
 - Bypass AMSI
+- Directory Operations
+- Execute .NET assembly - *Unstable and Risky*
 - Powershell in unmanged runspace
 - GetAV - current anti-virus products installed 
 - Powershell download cradle 
 - Dynamic implant generation 
 - Automated Redirector setup via Digital Ocean VPS
 
-### Powershell
-The framework is very powershell dependent - and it offers two ways of executing powershell. Either with `ExecProcess` in Nim or through Powershell in an unmanged runspace.
-
-`ExecProcess` is utilizing `Powershell.exe` to execute commands, and it makes a lot of *noise*. Powershell in an unmanged runspace is more stealthy, but has the limitation that it only takes one parameter.
-
-To use the `ExecProcess` method you simply need to type in the `powershell` command when you have started the interaction with the target, as seen below:
-
-![image](https://github.com/Primusinterp/PrimusC2/assets/65064450/87f49b76-4bdb-4e95-ba1a-5eab7a1bd4f1)
-
-To use Powershell in an unmanged runspace, you need to use the prefix `pwsh` and then the `command`, as seen below:
-![image](https://github.com/Primusinterp/PrimusC2/assets/65064450/9fb146a3-a97c-467a-bfc9-f9087020a3a9)
 
 ## Usage
 The following functionality is implemented in PrimusC2's current state:
@@ -73,11 +66,15 @@ The following functionality is implemented in PrimusC2's current state:
     Implant Commands
     ------------------------------------------------------------------------------------------------------
     background                  --> Backgrounds current sessions
-    persist                     --> Establish persistance trough registry keys(needs to be in the same
-                                    dir as the implant on target disk)
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
+    execute-ASM <file> <args>   --> Execute .NET assembly from memory   
+    ls                          --> List files in current directory
+    cd <dir>                    --> Change current working directory
+    pwd                         --> Print current working directory
+    shell                       --> Run Windows CMD commands on target
+
 ```
 
 To get started(simple):
@@ -97,9 +94,10 @@ To get started(redirector):
 
 
 ### Roadmap
-- Execute-Assembly 
-- Inline-Assembly
-- Encryption of data streams
-- Implementation of smart pipe redirectors with automation
-- Linux implant
-- Upload/download functionality for the implant
+- [x] Execute-Assembly 
+- [ ] Inline-Assembly
+- [ ] Encryption of data streams
+- [ ] Implementation of smart pipe redirectors with automation
+- [ ] Upload/download functionality for the implant
+- [x] Directory operations
+- [ ] HTTP C2 channel 
