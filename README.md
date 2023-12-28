@@ -57,13 +57,13 @@ The following functionality is implemented in PrimusC2's current state:
     ------------------------------------------------------------------------------------------------------
     Menu Commands
     ------------------------------------------------------------------------------------------------------
-    listeners -g                --> Generate a new listener on desired interface
-    nimplant                    --> Generate a compiled exe payload written in nim with advanced capabilities for windows
-    sessions -l                 --> List callbacks
-    sessions -i <sessions_val>  --> Enter a callback session
-    use <sessions_val>          --> Enter a callback session
+    listener -g <TYPE>          --> Generate a HTTP or TCP listener
+    nimplant -g <TYPE>          --> Generate a compiled exe payload written in nim with advanced capabilities for windows for either TCP or HTTP
+    callbacks                   --> List callbacks
+    use <callback ID> [use 0]   --> Enter a callback session
     pwsh_cradle                 --> Generate a pwsh cradle for a payload on the payloads server
     kill <sessions_val>         --> Terminate active callback
+    payloads                    --> List payloads available on for either transfer or execution
     exit                        --> exit from the server
 
     Implant Commands
@@ -76,7 +76,11 @@ The following functionality is implemented in PrimusC2's current state:
     ls                          --> List files in current directory
     cd <dir>                    --> Change current working directory
     pwd                         --> Print current working directory
-    shell                       --> Run Windows CMD commands on target
+    payloads                    --> List payloads available on for either transfer or execution
+    shell <COMMAND>             --> Run Windows CMD commands on target
+    sleep <milseconds>          --> Adjust callback time [Default 5000] - HTTP only
+    persist <k_name> <payload>  --> Deploy regsitry persistance to run a payload on startup(OPSEC: RISKY) - HTTP only
+    download <file>             --> Download file from target(dont use "" around file name or path) - HTTP only
 
 ```
 
