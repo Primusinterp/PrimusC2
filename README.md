@@ -28,7 +28,10 @@ source setup.py
 ```
 Install nim packages:
 ```
-sudo nimble install -y winim strenc shlex terminaltables
+sudo nimble install -y winim 
+sudo nimble install -y strenc 
+sudo nimble install -y shlex 
+sudo nimble install -y terminaltables
 ```
 Run the server from the C2 folder:
 ```bash
@@ -96,8 +99,12 @@ To get started(redirector):
 ### Roadmap
 - [x] Execute-Assembly 
 - [ ] Inline-Assembly
-- [ ] Encryption of data streams
+- [x] Encryption of data streams
 - [ ] Implementation of smart pipe redirectors with automation
-- [ ] Upload/download functionality for the implant
+- [x] Download functionality for the implant
+- [ ] Upload functionality for the implant
 - [x] Directory operations
-- [ ] HTTP C2 channel 
+- [x] HTTP C2 channel 
+- [ ] Improve OPSEC
+- [ ] Evasion techniques
+- [ ] Custom Term Rewriting Macro

