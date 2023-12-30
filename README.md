@@ -24,7 +24,7 @@ sudo chmod +x setup.sh
 ```
 run the setup script with source
 ```bash
-source setup.py
+source setup.sh
 ```
 Install nim packages:
 ```
@@ -43,7 +43,8 @@ python3 server.py
 - Nim Implant 
 - Bypass AMSI
 - Directory Operations
-- Execute .NET assembly - *Unstable and Risky*
+- Download functionaility 
+- Execute .NET assembly - *Risky*
 - Powershell in unmanged runspace
 - GetAV - current anti-virus products installed 
 - Powershell download cradle 
@@ -53,6 +54,8 @@ python3 server.py
 
 ## Usage
 The following functionality is implemented in PrimusC2's current state:
+
+*Beware that some features are only supported with the HTTP implant*
 ```bash
     ------------------------------------------------------------------------------------------------------
     Menu Commands
@@ -85,13 +88,13 @@ The following functionality is implemented in PrimusC2's current state:
 ```
 
 To get started(simple):
-1. Generate a listener `listeners -g`
+1. Generate a listener `listener -g <TYPE>`
 2. Generate an implant `nimplant`
 3. Transfer the implant to the target and await callback
 4. Happy hacking :)
 
 To get started(redirector):
-1. Generate a listener `listeners -g`
+1. Generate a listener `listener -g TCP`
 2. Choose `Listener with redirector` 
 3. Input data and wait for redirector provisioning 
 4. Generate an implant `nimplant`
