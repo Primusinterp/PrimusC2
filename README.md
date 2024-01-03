@@ -28,15 +28,18 @@ source setup.sh
 ```
 Install nim packages:
 ```
-sudo nimble install -y winim 
-sudo nimble install -y strenc 
-sudo nimble install -y shlex 
-sudo nimble install -y terminaltables
+nimble install -y winim 
+nimble install -y strenc 
+nimble install -y shlex 
+nimble install -y terminaltables
+nimble install -y RC4
+nimble install -y byteutils
 ```
 Run the server from the C2 folder:
 ```bash
 python3 server.py
 ```
+*If any issues arise while running the nimplant command, try and compile the implant manually to see errors*
 
 ## Features
 - Python C2 server 
