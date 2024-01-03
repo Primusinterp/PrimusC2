@@ -29,7 +29,6 @@ source setup.sh
 Install nim packages:
 ```
 nimble install -y winim 
-nimble install -y strenc 
 nimble install -y shlex 
 nimble install -y terminaltables
 nimble install -y RC4
