@@ -1,0 +1,49 @@
+URL  {
+    header {
+        -Server
+        +X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+        +X-Content-Type-Options "nosniff"
+    }
+
+    @header1_matcher {
+        header User-Agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.3"
+        header Content-Type "application/json"
+    }
+
+    @header2_matcher {
+        header User-Agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.3"
+        header Content-Type "application/json"
+        header X-Upload "true"
+    }
+
+    @ua_denylist {
+        import bad-UA.caddy
+        
+    }
+
+    @ip_denylist {
+        import bad-IPS.caddy
+    }
+
+    handle @header1_matcher {
+        reverse_proxy http://192.168.255.2:80
+    }
+
+    handle @header2_matcher {
+        reverse_proxy http://192.168.255.2:80
+    }
+
+    handle @ua_denylist {
+        respond "Site under construction - only debug data allowed" 403
+    }
+
+    handle @ip_denylist {
+        respond "Site under construction - only debug data allowed" 403
+    }
+
+    handle {
+        redir https://www.theverge.com/tech
+    }
+
+    log
+}

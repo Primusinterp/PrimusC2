@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  caddy:
+    image: caddy:latest
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./bad-UA.caddy:/etc/caddy/bad-UA.caddy
+      - ./bad-IPS.caddy:/etc/caddy/bad-IPS.caddy
+    ports:
+      - "80:80"
+      - "443:443"
