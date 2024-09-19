@@ -11,7 +11,28 @@ A C2 framework built for my bachelors thesis at KEA - Københavns Erhvervsakadem
 I work on this project in my spare time when i am not working or doing other security stuff, i am by no means a skilled coding genuis, but i love to learn and improve :) If you have any suggestions for me or feedback i would love to hear it, you can reach me on my socials. 
 
 
-## Installation 
+## Installation
+
+### The easy way
+Docker shenanigans 
+
+Clone and cd into the `PrimusC2` folder
+```bash
+git clone https://github.com/Primusinterp/PrimusC2.git
+
+cd PrimusC2
+```
+
+build all the things!
+```bash
+sudo docker build -t primusc2 .   
+```
+
+Run all the things!
+```bash
+sudo docker run --network=host -v $(pwd)/C2/Generated_Implants:/app/C2/Generated_Implants/ -it primusc2
+```
+### The hard way
 To get the dependencies installed and the server ready to go, it's needed to run the setup script and a few manual commands.
 
 git clone `PrimusC2`
@@ -44,6 +65,9 @@ sudo -E python3 server.py
 ```
 *If any issues arise while running the nimplant command, try and compile the implant manually to see errors*
 
+- - -
+
+
 ## Features
 - Python C2 server 
 - Nim Implant 
@@ -55,8 +79,10 @@ sudo -E python3 server.py
 - GetAV - current anti-virus products installed 
 - Powershell download cradle 
 - Dynamic implant generation 
+- .exe, .bin & .dll payload formats.
 - Automated Redirector setup via Digital Ocean VPS(Smart-Pipe & Dump-Pipe)
 - Web Interface
+- steal_token
 
 
 ## Usage
@@ -67,6 +93,7 @@ The following functionality is implemented in PrimusC2's current state:
     ------------------------------------------------------------------------------------------------------
     Menu Commands
     ------------------------------------------------------------------------------------------------------
+    help <command>              --> Get help for a specific command
     listener -g <TYPE>          --> Generate a HTTP or TCP listener
     nimplant -g <TYPE>          --> Generate a compiled exe payload written in nim with advanced capabilities for windows for either TCP or HTTP
     callbacks                   --> List callbacks
@@ -75,10 +102,10 @@ The following functionality is implemented in PrimusC2's current state:
     kill <sessions_val>         --> Terminate active callback
     payloads                    --> List payloads available on for either transfer or execution
     exit                        --> exit from the server
-    help <command>              --> Get help for a specific command
 
     Implant Commands
     ------------------------------------------------------------------------------------------------------
+    help <command>              --> Get help for a specific command
     background                  --> Backgrounds current sessions
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
@@ -89,10 +116,13 @@ The following functionality is implemented in PrimusC2's current state:
     pwd                         --> Print current working directory
     payloads                    --> List payloads available on for either transfer or execution
     shell <COMMAND>             --> Run Windows CMD commands on target
-    sleep <milseconds>          --> Adjust callback time [Default 5000] - HTTP only
+    sleep <milliseconds>        --> Adjust callback time [Default 5000] - HTTP only
     persist <k_name> <payload>  --> Deploy registry persistance to run a payload on startup(OPSEC: RISKY) - HTTP only
     download <file>             --> Download file from target(dont use "" around file name or path) - HTTP only
-    help <command>              --> Get help for a specific command
+    steal_token <PID>           --> Steal token from a process
+    rev2self                    --> Revert impersonation to original context
+    tShell                      --> run CMD.exe commands in the context of the stolen token
+    whoami                      --> Get the current user context
 
 ```
 
@@ -108,6 +138,7 @@ For more detailed documentation on usage etc. please go to the [docs](https://pr
 - [x] Directory operations
 - [x] HTTP C2 channel 
 - [ ] Improve OPSEC
-- [ ] Rework backend to accommodate a database for persistent storage
+- [x] Rework backend to accommodate a database for persistent storage
 - [ ] Evasion techniques
 - [ ] Custom Term Rewriting Macro
+- [ ] Refactor entire code base into multiple files and maybe classes 
