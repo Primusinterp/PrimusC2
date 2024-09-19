@@ -23,5 +23,5 @@ variable "pubkeys" {
 variable "cloudflare_api_token" {
   type        = string
   description = "cloudflare api token"
-  default = "CLoudflare_API_Token"
+  default = "Cloudflare_API_Token"
 }
