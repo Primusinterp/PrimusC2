@@ -30,9 +30,13 @@ def help():
     pwd                         --> Print current working directory
     payloads                    --> List payloads available on for either transfer or execution
     shell <COMMAND>             --> Run Windows CMD commands on target
-    sleep <milliseconds>          --> Adjust callback time [Default 5000] - HTTP only
+    sleep <milliseconds>        --> Adjust callback time [Default 5000] - HTTP only
     persist <k_name> <payload>  --> Deploy registry persistance to run a payload on startup(OPSEC: RISKY) - HTTP only
     download <file>             --> Download file from target(dont use "" around file name or path) - HTTP only
+    steal_token <PID>           --> Steal token from a process
+    rev2self                    --> Revert impersonation to original context
+    tShell                      --> run CMD.exe commands in the context of the stolen token
+    whoami                      --> Get the current user context
     '''
     print(help_var)
     return help_var
@@ -47,15 +51,19 @@ def help_implant():
     exit                        --> Terminate current session
     GetAV                       --> Get the current AV running
     pwsh <COMMAND>              --> Load CLR and run powershell in unmanaged runspace 
-    execute-ASM <file> <args>   --> Execute .NET assembly from memory
+    execute-ASM <file> <args>   --> Execute .NET assembly from memory   
     ls                          --> List files in current directory
     cd <dir>                    --> Change current working directory
     pwd                         --> Print current working directory
     payloads                    --> List payloads available on for either transfer or execution
     shell <COMMAND>             --> Run Windows CMD commands on target
-    sleep <milliseconds>          --> Adjust callback time [Default 5000] - HTTP only
+    sleep <milliseconds>        --> Adjust callback time [Default 5000] - HTTP only
     persist <k_name> <payload>  --> Deploy registry persistance to run a payload on startup(OPSEC: RISKY) - HTTP only
-    download <file>             --> Download file from implant(dont use "" around file name or path) - HTTP only
+    download <file>             --> Download file from target(dont use "" around file name or path) - HTTP only
+    steal_token <PID>           --> Steal token from a process
+    rev2self                    --> Revert impersonation to original context
+    tShell                      --> run CMD.exe commands in the context of the stolen token
+    whoami                      --> Get the current user context
     '''
     print(help_var)
     return help_var
@@ -75,7 +83,7 @@ def help_implant_GUI():
     pwd                         --> Print current working directory
     payloads                    --> List payloads available on for either transfer or execution
     shell <COMMAND>             --> Run Windows CMD commands on target
-    sleep <milliseconds>          --> Adjust callback time [Default 5000] - HTTP only
+    sleep <milliseconds>        --> Adjust callback time [Default 5000] - HTTP only
     persist <k_name> <payload>  --> Deploy registry persistance to run a payload on startup(OPSEC: RISKY) - HTTP only
     download <file>             --> Download file from implant(dont use "" around file name or path) - HTTP only
     '''
@@ -208,12 +216,17 @@ def nimplant_help():
 ------------------------------------------------------------------------------------------------------
 Synopsis: nimplant -g
 ------------------------------------------------------------------------------------------------------
-{Fore.YELLOW}Description:{Fore.RESET} Generate a compiled .exe payload written in Nim with advanced capabilities for windows for either TCP or HTTP.
+{Fore.YELLOW}Description:{Fore.RESET} Generate a compiled .exe payload written in Nim with advanced capabilities for windows.
 {Fore.YELLOW}Usage:{Fore.RESET} nimplant -g <TYPE>
 {Fore.YELLOW}Options:{Fore.RESET}
-  >>TCP
   >>HTTP
-{Fore.YELLOW}Note:{Fore.RESET} The HTTP implant is stable and reliable. The TCP implant can be unstable and unreliable.
+
+{Fore.YELLOW}Compile options:{Fore.RESET}
+  >>1. .exe
+  >>2. .dll 
+  >>3. .bin - PIC shellcode using sRDI
+{Fore.YELLOW}Note:{Fore.RESET} The .dll has the exported function: Ost - same exported function for the sRDI shellcode.
+{Fore.YELLOW}Note:{Fore.RESET} The HTTP implant is stable and reliable. 
 
           
 {Fore.YELLOW}Example:{Fore.RESET} nimplant -g HTTP
@@ -359,8 +372,55 @@ Synopsis: shell
     return help_var
     
 
-    
+def tShell_help():
+    help_var = Fore.YELLOW + f'''
+------------------------------------------------------------------------------------------------------
+Synopsis: tShell
+------------------------------------------------------------------------------------------------------
+{Fore.YELLOW}Description:{Fore.RESET} Run Windows run CMD.exe commands in the context of a stolen token
+{Fore.YELLOW}Usage:{Fore.RESET} tShell <COMMAND>
+          
+{Fore.YELLOW}Example:{Fore.RESET} tShell whoami
+'''
+    print(help_var)
+    return help_var    
 
           
+def whoami_help():
+    help_var = Fore.YELLOW + f'''
+------------------------------------------------------------------------------------------------------
+Synopsis: whoami
+------------------------------------------------------------------------------------------------------
+{Fore.YELLOW}Description:{Fore.RESET} Get the current user context
+{Fore.YELLOW}Usage:{Fore.RESET} whoami
           
+'''
+    print(help_var)
+    return help_var              
     
+
+def steal_token_help():
+    help_var = Fore.YELLOW + f'''
+------------------------------------------------------------------------------------------------------
+Synopsis: steal_token
+------------------------------------------------------------------------------------------------------
+{Fore.YELLOW}Description:{Fore.RESET} Steal token from a process
+{Fore.YELLOW}Usage:{Fore.RESET} steal_token <PID>
+          
+{Fore.YELLOW}Example:{Fore.RESET} steal_token 1315
+'''
+    print(help_var)
+    return help_var    
+
+
+def rev2self_help():
+    help_var = Fore.YELLOW + f'''
+------------------------------------------------------------------------------------------------------
+Synopsis: rev2self
+------------------------------------------------------------------------------------------------------
+{Fore.YELLOW}Description:{Fore.RESET} Revokes impersonation to the original user context
+{Fore.YELLOW}Usage:{Fore.RESET} rev2self
+          
+'''
+    print(help_var)
+    return help_var    
