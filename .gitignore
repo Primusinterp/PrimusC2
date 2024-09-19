@@ -2,3 +2,8 @@ C2/Generated_Implants/
 C2/Payloads/
 C2/Loot/
 PrimusC2/utils/__pycache__
+testing
+PrimusC2/C2/db/__pycache__
+C2/*.db
+C2/implant_logic.py
+
