@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChakraProvider, Box, Flex, Link, Image } from '@chakra-ui/react';
-import { FaHome, FaListAlt, FaRetweet, FaBug, FaRocket } from 'react-icons/fa';
+import { FaHome, FaListAlt, FaRetweet, FaBug, FaRocket, FaSearch } from 'react-icons/fa';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import Home from './Home';
@@ -8,6 +8,7 @@ import Listener from './Listener';
 import Callbacks from './Callbacks';
 import Interact from './Interact';
 import Payloads from './Payloads'; 
+import OutputSearcher from './OutputSearcher';
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,10 @@ function App() {
                   <FaRocket boxSize={6} />
                   <Box marginLeft={2}>Payloads</Box>
                 </Box>
+                <Box as={Link} href="/outputsearcher" display="flex" alignItems="center" padding={2} borderBottom="1px solid #666" width="100%" _hover={{ bg: "white", color: "#2e353d" }}>
+                  <FaSearch boxSize={6} />
+                  <Box marginLeft={2}>Output Searcher</Box>
+                </Box>
               </Flex>
             </Box>
             <Box flex="1" marginLeft="350px">
@@ -47,6 +52,7 @@ function App() {
                 <Route path="/callbacks" element={<Callbacks />} />
                 <Route path="/interact/:id" element={<Interact />} /> 
                 <Route path="/payloads" element={<Payloads />} /> 
+                <Route path="/outputsearcher" element={<OutputSearcher />} /> 
               </Routes>
             </Box>
           </Flex>

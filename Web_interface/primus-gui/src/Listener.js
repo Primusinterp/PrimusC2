@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Heading, Text,Stack ,Select,Button, useDisclosure,Spinner, useToast, Flex, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, FormControl, FormLabel, Input } from '@chakra-ui/react';
+import { Box, Heading, Text, Stack, Select, Button, useDisclosure, Spinner, useToast, Flex, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, Input } from '@chakra-ui/react';
 import { useForm } from 'react-hook-form';
-import { useQuery, useMutation, toast } from 'react-query';
+import { useQuery, useMutation } from 'react-query';
 
 async function fetchListenerTypes() {
   const response = await fetch('/api/listener-types');
@@ -37,7 +37,7 @@ async function compileImplant(compileData) {
 
   // Extract the filename from the Content-Disposition header
   const contentDisposition = response.headers.get('Content-Disposition');
-  let filename = 'implant.exe'; // Default filename
+  let filename = `implant.${compileData.format}`; // Default filename with format
   if (contentDisposition) {
     const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
     if (filenameMatch && filenameMatch[1]) {
@@ -68,31 +68,45 @@ async function startListener(listenerData) {
 function ListenerList({ fetchListeners }) {
   const [listeners, setListeners] = useState([]);
   const killModal = useDisclosure();
-  const [compilingListenerId, setCompilingListenerId] = useState(null); 
-
- 
+  const compileModal = useDisclosure();
+  const [compilingListenerId, setCompilingListenerId] = useState(null);
+  const [selectedListener, setSelectedListener] = useState(null);
+  const [compileFormat, setCompileFormat] = useState('exe');
+  const toast = useToast();
 
   useEffect(() => {
     fetchListeners().then(setListeners);
   }, [fetchListeners]);
 
-  const handleCompile = async (listener) => {
+  const handleCompileClick = (listener) => {
+    setSelectedListener(listener);
+    compileModal.onOpen();
+  };
+
+  const handleCompile = async () => {
     try {
-      setCompilingListenerId(listener.ID); 
-      await compileImplant(listener);
-      setCompilingListenerId(null); 
-  
+      setCompilingListenerId(selectedListener.ID);
+      await compileImplant({ ...selectedListener, format: compileFormat });
+      setCompilingListenerId(null);
+      compileModal.onClose();
       
       toast({
         title: "Implant compiled",
-        description: "The implant has been successfully compiled.",
+        description: `The implant has been successfully compiled as ${compileFormat}.`,
         status: "success",
         duration: 9000,
         isClosable: true,
       });
     } catch (error) {
-      setCompilingListenerId(null); 
+      setCompilingListenerId(null);
       console.error('An error occurred:', error);
+      toast({
+        title: "Compilation failed",
+        description: "An error occurred while compiling the implant.",
+        status: "error",
+        duration: 9000,
+        isClosable: true,
+      });
     }
   };
 
@@ -100,36 +114,36 @@ function ListenerList({ fetchListeners }) {
     <Box>
       <Text fontSize="xl" mb="4">Listeners</Text>
       {listeners.map(listener => (
-  <Flex justifyContent="center" alignItems="center" height="100%">
-    <Box bg="white" shadow="md" p="6" rounded="md" mb="4" w="2xl">
-      <Flex justify="space-between">
-        <Stack spacing={3}>
-          <Text fontWeight="bold">Listener Type: {listener.type}</Text>
-          <Text>ID: {listener.ID}</Text>
-          {listener.type === 'Redirector/HTTPS' ? (
-            <>
-              <Text>Interface: {listener.interface}</Text>
-              <Text>Domain: {listener.domain}</Text>
-            </>
-          ) : (
-            <Text>Interface: {listener.interface}</Text>
-          )}
-          {listener.type === 'TCP' && (
-            <Text>Note: Can only interact with TCP implant through command line, access through callbacks in the web UI will cause errors.</Text>
-          )}
-        </Stack>
-        <Stack spacing={3}>
-          <Text><i className="fa fa-cog"></i> Port: {listener.port}</Text>
-          <Text><i className="fa fa-eye"></i> Status: {listener.status}</Text>
-          <Button colorScheme="red" mt="2" onClick={killModal.onOpen}>Kill</Button>
-          <Button colorScheme="blue" mt="2" onClick={() => handleCompile(listener)}>
-            {compilingListenerId === listener.ID ? <Spinner /> : 'Compile Implant'}
-          </Button>
-        </Stack>
-      </Flex>
-    </Box>
-  </Flex>
-))}
+        <Flex key={listener.ID} justifyContent="center" alignItems="center" height="100%">
+          <Box bg="white" shadow="md" p="6" rounded="md" mb="4" w="2xl">
+            <Flex justify="space-between">
+              <Stack spacing={3}>
+                <Text fontWeight="bold">Listener Type: {listener.type}</Text>
+                <Text>ID: {listener.ID}</Text>
+                {listener.type === 'Redirector/HTTPS' ? (
+                  <>
+                    <Text>IP: {listener.interface}</Text>
+                    <Text>Domain: {listener.domain}</Text>
+                  </>
+                ) : (
+                  <Text>IP: {listener.interface}</Text>
+                )}
+                {listener.type === 'TCP' && (
+                  <Text>Note: Can only interact with TCP implant through command line, access through callbacks in the web UI will cause errors.</Text>
+                )}
+              </Stack>
+              <Stack spacing={3}>
+                <Text><i className="fa fa-cog"></i> Port: {listener.port}</Text>
+                <Text><i className="fa fa-eye"></i> Status: {listener.status}</Text>
+                <Button colorScheme="red" mt="2" onClick={killModal.onOpen}>Kill</Button>
+                <Button colorScheme="blue" mt="2" onClick={() => handleCompileClick(listener)}>
+                  {compilingListenerId === listener.ID ? <Spinner /> : 'Compile Implant'}
+                </Button>
+              </Stack>
+            </Flex>
+          </Box>
+        </Flex>
+      ))}
       <Modal isOpen={killModal.isOpen} onClose={killModal.onClose}>
         <ModalOverlay />
         <ModalContent>
@@ -138,6 +152,29 @@ function ListenerList({ fetchListeners }) {
           <ModalBody>
             This feature is under development and will be available in a future version of the application.
           </ModalBody>
+        </ModalContent>
+      </Modal>
+      <Modal isOpen={compileModal.isOpen} onClose={compileModal.onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Compile Implant</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>Select compilation format:</FormLabel>
+              <Select value={compileFormat} onChange={(e) => setCompileFormat(e.target.value)}>
+                <option value="exe">.exe</option>
+                <option value="dll">.dll</option>
+                <option value="bin">shellcode (.bin)</option>
+              </Select>
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={handleCompile}>
+              Compile
+            </Button>
+            <Button variant="ghost" onClick={compileModal.onClose}>Cancel</Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </Box>
