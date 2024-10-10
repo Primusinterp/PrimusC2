@@ -1840,6 +1840,7 @@ def redirector_http(dns_rec=None):
 
     terra_loc = Path.cwd().parent / 'Terraform_HTTP'
     redir_folder = terra_loc / 'redir'
+    os.makedirs(f'{terra_loc}/keys', exist_ok=True)
 
     tf_var_file_loc = terra_loc / 'config_templates' / 'variable.tf'
     caddy_loc = terra_loc / 'config_templates' / 'Caddyfile'
