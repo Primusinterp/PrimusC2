@@ -7,5 +7,5 @@ pycryptodomex==3.11.0
 randomname==0.2.1
 rich==13.7.1
 simple_term_menu==1.6.4
-Werkzeug==2.2.2
+Werkzeug==3.0.6
 asgiref
